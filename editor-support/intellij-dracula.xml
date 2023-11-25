@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<style-scheme id="intellij-dracula" name="Intellij-Dracula" version="1.0">
+  	<description>Dark color scheme for GtkSourceView</description>
+    
+    <color name="background" value="#2b2b2b"/>
+    <color name="current-line" value="#323232"/>
+    <color name="foreground" value="#a9b7c6"/>
+    <color name="comment" value="#6A9955"/>
+    <color name="orange" value="#CC7832"/> 
+    <color name="green" value="#50FA7B"/>
+    <color name="bright_orange" value="#FFB86C"/>
+    <color name="grey" value="#A9B7C6"/>
+    <color name="grey_blue" value="#6897BB"/>
+    <color name="red" value="#FF5555"/>
+    <color name="string" value="#6A8759"/>
+    
+	<!-- GUI styles -->
+    <style name="text" foreground="foreground" background="background"/>
+    <style name="cursor" foreground="foreground" background="foreground"/>
+    <style name="selection" foreground="foreground" background="#725E97"/>
+    <style name="current-line" background="current-line"/>
+    <style name="line-numbers" foreground="comment" background="background"/>
+    <style name="current-line-number" background="current-line"/>
+    <style name="bracket-match" foreground="#F8F8FA" background="#1E2029" bold="true"/>
+    <style name="right-margin" background="#4A4F66"/>
+    <style name="background-pattern" foreground="#313447" background="#313447"/>
+  	<style name="search-match" foreground="foreground" background="orange"/>
+    <style name="map-overlay" background="#rgba(255,121,198,.2)"/>
+    
+	<!-- Default styles -->
+    <style name="def:boolean" foreground="orange"/>
+    <style name="def:comment" foreground="comment"/>
+    <style name="def:constant" foreground="grey_blue"/>
+    <style name="def:decimal" foreground="grey_blue"/>
+    <style name="def:floating-point" foreground="grey_blue"/>
+    <style name="def:function" foreground="green"/>
+    <style name="def:identifier" foreground="grey" bold="true"/>
+    <style name="def:keyword" foreground="orange"/>
+    <style name="def:operator" foreground="grey"/>
+    <style name="def:preprocessor" foreground="bright_orange"/>
+    <style name="def:special-char" foreground="bright_orange"/>
+    <style name="def:string" foreground="string"/>
+    <style name="def:type" foreground="orange" bold="true"/>
+    <style name="def:note" foreground="bright_orange" background="#rgba(0,0,0,.2)" bold="true"/>
+    
+    <style name="json:keyname" foreground="orange"/>
+    
+    <style name="c:macro-name" foreground="grey_blue"/>
+    <style name="c:preprocessor" foreground="green"/>
+    <style name="c:storage-class" foreground="grey"/>
+    
+    <style name="xml:attribute-name" foreground="green"/>
+    <style name="xml:entity" foreground="grey_blue"/>
+    
+    <style name="java:external" foreground="grey"/>
+    <style name="java:scope-declaration" foreground="grey"/>
+    <style name="java:reserved" foreground="grey"/>
+    <style name="java:storage-class" foreground="grey"/>
+    <style name="java:declaration" foreground="grey"/>
+    
+    <style name="python:decorator" foreground="green"/>
+    <style name="python:class-name" foreground="orange"/>
+    <style name="python:builtin-function" foreground="green"/>
+    <style name="python:special-variable" foreground="grey_blue"/>
+    <style name="python:module-handler" foreground="grey"/>
+</style-scheme>

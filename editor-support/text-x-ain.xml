@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="text/x-ain">
+    <comment>Ain source code</comment>
+  	<comment xml:lang="ar">شفرة مصدر عين</comment>
+    <glob pattern="*.ain"/>
+  </mime-type>
+</mime-info>
