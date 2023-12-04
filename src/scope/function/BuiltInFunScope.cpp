@@ -1776,12 +1776,50 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
         }
     );
 
+    auto GET=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::GET_NAME,
+        Type::CHAR,
+        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::INT}},
+        [](Interpreter* interpreter){
+            auto str=interpreter->AX->toString();
+            auto size=str.size();
+            auto index=std::dynamic_pointer_cast<IntValue>(interpreter->CX)->getValue();
+            if(index>=size)
+                throw ArrayIndexOutOfRangeException(size,index);
+            interpreter->AX=std::make_shared<CharValue>(str[index]);
+        },
+        true
+    );
+
+    auto SIZE=std::make_shared<BuiltInFunScope>(
+        L"الحجم",
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){
+            auto size=interpreter->AX->toString().size();
+            interpreter->AX=std::make_shared<IntValue>(size);
+        }
+    );
+
+    auto IS_NOT_EMPTY=std::make_shared<BuiltInFunScope>(
+        IS_NOT_EMPTY_NAME,
+        Type::BOOL,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){
+            auto size=interpreter->AX->toString().size();
+            interpreter->AX=std::make_shared<BoolValue>(size!=0);
+        }
+    );
+
     auto funs={
         PLUS_STRING,PLUS_CHAR,
         EQUALS,
         TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING
+        TO_STRING,
+        GET,
+        SIZE,
+        IS_NOT_EMPTY,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
