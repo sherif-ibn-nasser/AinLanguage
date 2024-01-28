@@ -5,6 +5,8 @@
 #include <memory>
 #include "BuiltInFunScope.hpp"
 #include "ClassParser.hpp"
+#include "Compiler.hpp"
+#include "CompilerVarsOffsetSetter.hpp"
 #include "ExpressionParser.hpp"
 #include "FileParser.hpp"
 #include "FunDeclParser.hpp"
@@ -171,10 +173,11 @@ int main(int argc, char * argv[]){
         PackageScope::AIN_PACKAGE->accept(checker);
         
         delete checker;
-
+        /*
         auto interpreter=new Interpreter;
         auto lAssigner=new Interpreter::LeftSideAssigner(interpreter);
         auto rAssigner=new Interpreter::RightSideAssigner(interpreter);
+        
         auto varsOffsetSetter=new VarsOffsetSetter(
             &interpreter->offsets,
             interpreter->BP,
@@ -188,17 +191,32 @@ int main(int argc, char * argv[]){
 
         interpreter->lAssigner=lAssigner;
         interpreter->rAssigner=rAssigner;
+
+        */
+
+        auto compiler=new Compiler;
+        auto compilerVarsOffsetSetter=new CompilerVarsOffsetSetter(&compiler->offsets);
+
+        PackageScope::AIN_PACKAGE->accept(compilerVarsOffsetSetter);
+
+        delete compilerVarsOffsetSetter;
         
         auto main=PackageScope::AIN_PACKAGE->
             findFileByPath(toWstring(filesStack[0]))->
             findPublicFunction(L"البداية()");
+
+        main->accept(compiler);
+
+        delete compiler;
         
+        /*
         PackageScope::AIN_PACKAGE->accept(interpreter); // To init global vars
         main->accept(interpreter);
 
         delete lAssigner;
         delete rAssigner;
         delete interpreter;
+        */
 
     }
     catch(std::exception& e){

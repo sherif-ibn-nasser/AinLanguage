@@ -39,13 +39,13 @@ wchar_t getEscapeSequenceFromCharacter(const wchar_t& c){
         // مسافة للخلف
         case L'خ' :return L'\b';
 
-        // مساحة أفقية
+        // مسافة أفقية
         case L'ف' :return L'\t';
 
         // سطر جديد
         case L'س' :return L'\n';
 
-        // مساحة رأسية
+        // مسافة رأسية
         case L'ر' :return L'\v';
 
         // الصفحة التالية

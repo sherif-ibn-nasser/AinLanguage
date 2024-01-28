@@ -57,4 +57,6 @@ class ClassScope: public BaseScope{
         SharedStmListScope getVarsInitStmList()const;
 
         void setVarsInitStmList(SharedStmListScope varsInitStmList);
+
+        int getSize();
 };

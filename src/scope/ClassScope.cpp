@@ -115,3 +115,19 @@ SharedStmListScope ClassScope::getVarsInitStmList()const{
 void ClassScope::setVarsInitStmList(SharedStmListScope varsInitStmList){
     this->varsInitStmList=varsInitStmList;
 }
+
+int ClassScope::getSize(){
+
+    // TODO: This size should be dynamic for arrays and strings
+    
+    auto size=0;
+
+    for(auto var:*publicVariables){
+        size+=var.second->getSize();
+    }
+    for(auto var:*privateVariables){
+        size+=var.second->getSize();
+    }
+
+    return size;
+}

@@ -6,6 +6,8 @@ project(AinLanguage)
 
 add_library(ainsrc
     src/main.cpp
+    src/interpreter/VarsOffsetSetter.cpp
+    src/interpreter/Interpreter.cpp
     src/ain_file/AinFile.cpp
     src/lexer/LexerLine.cpp
     src/lexer/Lexer.cpp
@@ -16,7 +18,6 @@ add_library(ainsrc
     src/lexer/KeywordToken.cpp
     src/helpers/wchar_t_helper.cpp
     src/helpers/string_helper.cpp
-    src/helpers/number_helper.cpp
     src/helpers/ainio.cpp
     src/statement/IfStatement.cpp
     src/statement/ContinueStatement.cpp
@@ -42,7 +43,8 @@ add_library(ainsrc
     src/semantics/SemanticsChecksVisitor.cpp
     src/semantics/TypeChecker.cpp
     src/semantics/ImplicitVarTypeChecker.cpp
-    src/VarsOffsetSetter.cpp
+    src/compiler/CompilerVarsOffsetSetter.cpp
+    src/compiler/Compiler.cpp
     src/expression/OperatorFunInvokeExpression.cpp
     src/expression/NewObjectExpression.cpp
     src/expression/value/LongValue.cpp
@@ -70,7 +72,6 @@ add_library(ainsrc
     src/expression/ThisVarAccessExpression.cpp
     src/expression/SetOperatorExpression.cpp
     src/expression/LiteralExpression.cpp
-    src/Interpreter.cpp
     src/parser/elements/FunParam.cpp
     src/parser/elements/FunDecl.cpp
     src/parser/elements/Type.cpp
@@ -93,6 +94,7 @@ add_library(ainsrc
 
 set(INCLUDE
     include/
+    include/interpreter/
     include/ain_file/
     include/lexer/
     include/helpers/
@@ -108,6 +110,7 @@ set(INCLUDE
     include/scope/class/
     include/scope/function/
     include/semantics/
+    include/compiler/
     include/expression/
     include/expression/value/
     include/parser/
