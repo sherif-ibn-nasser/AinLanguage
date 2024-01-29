@@ -53,6 +53,8 @@ class Compiler:public ASTVisitor{
 
         void reserveSpaceForStmListLocals(std::wstring* labelAsm,int size);
         void removeReservedSpaceForStmListLocals(std::wstring* labelAsm,int size);
+        void addExit(std::wstring* labelAsm, int errorCode);
+        
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;

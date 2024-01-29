@@ -19,15 +19,29 @@ void Compiler::visit(FunScope* scope){
 
     auto decl=scope->getDecl();
     auto isConstructor=decl->isConstructor();
+    auto isMain=scope->getName()==L"البداية";
 
-    labelsAsm[scope]=
-        (isConstructor)
-        ?(L"constructor"+std::to_wstring(labelsAsm.size())+L":\n")
-        :(scope->getName()==L"البداية")
-        ?L"_start:\n"
-        :(L"fun"+std::to_wstring(labelsAsm.size())+L":\n");
+    labelsAsm[scope]=L"";
 
     auto labelAsm=&labelsAsm[scope];
+
+    if (isConstructor)
+        *labelAsm+=
+            L"\n; دالة إنشاء "+decl->returnType->getClassScope()->getName()+
+            L"\nconstructor"+std::to_wstring(labelsAsm.size())+L":\n"
+        ;
+    
+    else if (isMain)
+        *labelAsm+=
+            L"\n; دالة البداية\n"
+            L"_start:\n"
+        ;
+
+    else
+        *labelAsm+=
+            L"\n; دالة "+scope->getName()+L"\n"
+            L"fun"+std::to_wstring(labelsAsm.size())+L":\n"
+        ;
 
     *labelAsm+=
         L"  push RBP\n"
@@ -58,8 +72,12 @@ void Compiler::visit(FunScope* scope){
     *labelAsm+=
         L"  mov RSP, RBP\n"
         L"  pop RBP\n"
-        L"  ret\n"
     ;
+
+    if(isMain)
+        addExit(labelAsm, 0);
+    else
+        *labelAsm+=L"   ret";
     
     
 }
@@ -186,4 +204,13 @@ void Compiler::reserveSpaceForStmListLocals(std::wstring* labelAsm,int size){
 
 void Compiler::removeReservedSpaceForStmListLocals(std::wstring* labelAsm,int size){
     *labelAsm+=L"   add RSB,"+std::to_wstring(size)+L"\n";
+}
+
+void Compiler::addExit(std::wstring* labelAsm, int errorCode){
+    *labelAsm+=
+            L"\n  ; إنهاء البرنامج\n"
+            L"  mov RAX, 60\n"
+            L"  mov RDI, "+std::to_wstring(errorCode)+"\n"
+            L"  syscall\n"
+        ;
 }

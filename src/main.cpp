@@ -34,6 +34,7 @@
 #include "Type.hpp"
 #include "Interpreter.hpp"
 #include "VarsOffsetSetter.hpp"
+#include "ainio.hpp"
 
 auto typeParserProvider=[](SharedTokensIterator iterator,SharedBaseScope scope){
     return std::make_shared<TypeParser>(
@@ -207,7 +208,7 @@ int main(int argc, char * argv[]){
 
         main->accept(compiler);
 
-        std::wcout<<compiler->getAssemblyFile();
+        ainprint(compiler->getAssemblyFile(), false);
 
         delete compiler;
         
