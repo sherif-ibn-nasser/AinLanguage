@@ -14,7 +14,7 @@ CompilerVarsOffsetSetter::Offset::Offset(std::string reg, int value):
 {}
 
 CompilerVarsOffsetSetter::Offset::Offset():
-    reg(0),
+    reg(""),
     value(0)
 {}
 

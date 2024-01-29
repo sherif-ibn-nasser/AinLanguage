@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <unordered_map>
 #include "ASTVisitor.hpp"
 #include "CompilerVarsOffsetSetter.hpp"
@@ -40,6 +41,18 @@
 class BuiltInFunScope;
 
 class Compiler:public ASTVisitor{
+    private:
+        std::wstring dataAsm=L"";
+        std::wstring bssAsm=L"";
+        std::wstring textAsm=
+            L"section .text\n"
+            L"  global _start\n"
+        ;
+
+        std::unordered_map<StmListScope*, std::wstring> labelsAsm;
+
+        void reserveSpaceForStmListLocals(std::wstring* labelAsm,int size);
+        void removeReservedSpaceForStmListLocals(std::wstring* labelAsm,int size);
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;
@@ -72,6 +85,8 @@ class Compiler:public ASTVisitor{
         void visit(ThisExpression* ex)override;
         void visit(ThisVarAccessExpression* ex)override;
         void visit(ThisFunInvokeExpression* ex)override;
+
+        std::wstring getAssemblyFile();
 
         std::unordered_map<Variable*, CompilerVarsOffsetSetter::Offset> offsets;
 

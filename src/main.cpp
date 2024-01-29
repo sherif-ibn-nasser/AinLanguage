@@ -207,6 +207,8 @@ int main(int argc, char * argv[]){
 
         main->accept(compiler);
 
+        std::wcout<<compiler->getAssemblyFile();
+
         delete compiler;
         
         /*
