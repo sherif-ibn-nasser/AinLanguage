@@ -2,6 +2,7 @@
 #include "ASTVisitor.hpp"
 #include "AugmentedAssignStatement.hpp"
 #include "BreakStatement.hpp"
+#include "ConflictingDeclarationException.hpp"
 #include "ContinueStatement.hpp"
 #include "DoWhileStatement.hpp"
 #include "ExpressionExpectedException.hpp"
@@ -121,15 +122,22 @@ SharedIStatement StmListParser::parseNextStatement(SharedStmListScope parentScop
 }
 
 SharedIStatement StmListParser::parseVarStatement(SharedStmListScope parentScope) {
+    int lineNumber=iterator->lineNumber;
+
     auto varStm=varStmParserProvider(iterator,parentScope)->parse();
 
     if(!varStm)
         return nullptr;
     
     auto var=varStm->getVar();
+    auto varName=*var->getName();
+    auto locals=parentScope->getLocals();
 
-    (*parentScope->getLocals())[*var->getName()]=var;
+    if (locals->find(varName)!=locals->end())
+        throw ConflictingDeclarationException(lineNumber);
 
+    (*locals)[varName]=var;
+    
     return varStm;
 }
 

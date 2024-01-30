@@ -44,41 +44,41 @@ void Compiler::visit(FunScope* scope){
         ;
 
     *labelAsm+=
-        L"  push RBP\n"
-        L"  mov RBP, RSP\n"
+        L"\tpush RBP\n"
+        L"\tmov RBP, RSP\n"
     ;
 
     if(isConstructor)
         decl->returnType->getClassScope()->accept(this);
 
     // locals contains params, so we don't offset params
-    auto localsSize=scope->getLocals()->size();
-    auto paramsSize=scope->getDecl()->params->size();
+    auto nonParams=scope->getNonParamsFromLocals();
+    int nonParamsReservedSize=0;
 
-    if(localsSize>paramsSize)
-        reserveSpaceForStmListLocals(labelAsm,localsSize-paramsSize);
+    if(nonParams->size()>0){
+        nonParamsReservedSize=getVariablesSize(nonParams);
+        reserveSpaceForStmListLocals(labelAsm, nonParamsReservedSize);
+    }
 
     for(auto stm:*scope->getStmList()){
         stm->accept(this);
     }
 
-
     if(isConstructor)
-        *labelAsm+=L"  mov RAX, [RBX]\n";
+        *labelAsm+=L"\tmov RAX, [RBX]\n";
 
     else if(*scope->getReturnType()==*Type::UNIT)
-        *labelAsm+=L"  xor RAX, RAX\n";
+        *labelAsm+=L"\txor RAX, RAX\n";
 
     *labelAsm+=
-        L"  mov RSP, RBP\n"
-        L"  pop RBP\n"
+        L"\tmov RSP, RBP\n"
+        L"\tpop RBP\n"
     ;
 
     if(isMain)
         addExit(labelAsm, 0);
     else
         *labelAsm+=L"   ret";
-    
     
 }
 
@@ -199,18 +199,26 @@ std::wstring Compiler::getAssemblyFile(){
 }
 
 void Compiler::reserveSpaceForStmListLocals(std::wstring* labelAsm,int size){
-    *labelAsm+=L"   sub RSB,"+std::to_wstring(size)+L"\n";
+    *labelAsm+=L"\tsub RSB, "+std::to_wstring(size)+L"\n";
 }
 
 void Compiler::removeReservedSpaceForStmListLocals(std::wstring* labelAsm,int size){
-    *labelAsm+=L"   add RSB,"+std::to_wstring(size)+L"\n";
+    *labelAsm+=L"\tadd RSB, "+std::to_wstring(size)+L"\n";
 }
 
 void Compiler::addExit(std::wstring* labelAsm, int errorCode){
     *labelAsm+=
-            L"\n  ; إنهاء البرنامج\n"
-            L"  mov RAX, 60\n"
-            L"  mov RDI, "+std::to_wstring(errorCode)+"\n"
-            L"  syscall\n"
+            L"\n\t; إنهاء البرنامج\n"
+            L"\tmov RAX, 60\n"
+            L"\tmov RDI, "+std::to_wstring(errorCode)+"\n"
+            L"\tsyscall\n"
         ;
+}
+
+int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
+    auto size=0;
+    for (auto varIt:*vars){
+        size+=varIt.second->getSize();
+    }
+    return size;
 }

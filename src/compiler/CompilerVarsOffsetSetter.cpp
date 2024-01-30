@@ -141,13 +141,13 @@ void CompilerVarsOffsetSetter::visit(ClassScope* scope){
 }
 
 void CompilerVarsOffsetSetter::visit(FunScope* scope){
-    auto params=scope->getDecl()->params;
+    auto paramsVec=scope->getDecl()->params;
 
     auto locals=scope->getLocals();
 
     stmListScopeOffset=8; // for first offset before 8-byte RSP register, TODO: need to handle if the system is 32-bit
 
-    for(auto paramIt=params->rbegin();paramIt!=params->rend();paramIt++){
+    for(auto paramIt=paramsVec->rbegin();paramIt!=paramsVec->rend();paramIt++){
 
         auto name=*paramIt->get()->name;
         auto var=(*locals)[name].get();
@@ -162,12 +162,9 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
 
     stmListScopeOffset=0; // for first offset after 8-byte RSP register, the offset will be decreased by the variable size
 
-    for(auto varIt:*scope->getLocals()){
+    for(auto varIt:*scope->getNonParamsFromLocals()){
 
         auto var=varIt.second.get();
-
-        if(offsets->find(var)!=offsets->end()) // if the var has already an offset as it is a param, continue
-            continue;
         
         stmListScopeOffset-=var->getSize();
 

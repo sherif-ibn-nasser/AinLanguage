@@ -9,7 +9,9 @@
 #include "Variable.hpp"
 #include "IStatement.hpp"
 #include "FunDecl.hpp"
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include "InvalidOperatorFunDeclarationException.hpp"
 
 FunScope::FunScope(
@@ -33,4 +35,28 @@ void FunScope::setReturnValue(SharedIValue returnValue){
 
 SharedIValue FunScope::getReturnValue(){
     return this->returnValue;
+}
+
+SharedMap<std::wstring, SharedVariable> FunScope::getParamsFromLocals(){
+    auto params=std::make_shared<std::unordered_map<std::wstring, SharedVariable>>();
+
+    for (auto param:*decl->params){
+        (*params)[*param->name]=(*locals)[*param->name];
+    }
+
+    return params;
+}
+
+SharedMap<std::wstring, SharedVariable> FunScope::getNonParamsFromLocals(){
+    auto nonParams=std::make_shared<std::unordered_map<std::wstring, SharedVariable>>();
+    auto params=getParamsFromLocals();
+
+    for (auto localIt:*locals){
+        auto name=localIt.first;
+        if(params->find(name)!=params->end())
+            continue;
+        (*nonParams)[name]=(*locals)[name];
+    }
+
+    return nonParams;
 }

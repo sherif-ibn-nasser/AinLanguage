@@ -46,7 +46,7 @@ class Compiler:public ASTVisitor{
         std::wstring bssAsm=L"";
         std::wstring textAsm=
             L"section .text\n"
-            L"  global _start\n"
+            L"\tglobal _start\n"
         ;
 
         std::unordered_map<StmListScope*, std::wstring> labelsAsm;
@@ -54,6 +54,7 @@ class Compiler:public ASTVisitor{
         void reserveSpaceForStmListLocals(std::wstring* labelAsm,int size);
         void removeReservedSpaceForStmListLocals(std::wstring* labelAsm,int size);
         void addExit(std::wstring* labelAsm, int errorCode);
+        int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
         
     public:
         void visit(PackageScope* scope)override;
