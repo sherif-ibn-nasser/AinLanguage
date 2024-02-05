@@ -630,7 +630,7 @@ SharedIValue ExpressionParser::parseNumberValue(NumberToken::NUMBER_TYPE numType
 
         case NumberToken::DOUBLE:
             return std::make_shared<DoubleValue>(
-                std::stold(value)
+                std::stod(value)
             );
 
         case NumberToken::FLOAT:

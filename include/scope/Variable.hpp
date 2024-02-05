@@ -16,7 +16,4 @@ class Variable{
         SharedType getType();
 
         void setType(SharedType type);
-
-        int getSize();
-
 };

@@ -3,6 +3,7 @@
 #include "SharedPtrTypes.hpp"
 #include "StmListScope.hpp"
 #include "IStatement.hpp"
+#include "Type.hpp"
 #include "Variable.hpp"
 #include <map>
 #include <memory>
@@ -123,10 +124,10 @@ int ClassScope::getSize(){
     auto size=0;
 
     for(auto var:*publicVariables){
-        size+=var.second->getSize();
+        size+=Type::getSize(var.second->getType().get());
     }
     for(auto var:*privateVariables){
-        size+=var.second->getSize();
+        size+=Type::getSize(var.second->getType().get());
     }
 
     return size;

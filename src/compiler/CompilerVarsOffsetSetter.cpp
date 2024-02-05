@@ -37,7 +37,7 @@ void CompilerVarsOffsetSetter::offsetStmListScope(StmListScope* scope){
 
         auto var=varIt.second.get();
 
-        stmListScopeOffset-=var->getSize();
+        stmListScopeOffset-=Type::getSize(var->getType().get());
         
         (*offsets)[var]=Offset(
             Compiler::RBP,
@@ -111,7 +111,7 @@ void CompilerVarsOffsetSetter::visit(ClassScope* scope){
             varsOffset
         );
 
-        varsOffset+=var->getSize();
+        varsOffset+=Type::getSize(var->getType().get());
     }
 
     for(auto varIt:*scope->getPrivateVariables()){
@@ -122,7 +122,7 @@ void CompilerVarsOffsetSetter::visit(ClassScope* scope){
             varsOffset
         );
 
-        varsOffset+=var->getSize();
+        varsOffset+=Type::getSize(var->getType().get());
     }
 
     for(auto constructorIt:*scope->getPublicConstructors()){
@@ -157,7 +157,7 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
             stmListScopeOffset
         );
 
-        stmListScopeOffset+=(*locals)[name]->getSize();
+        stmListScopeOffset+=Type::getSize((*locals)[name]->getType().get());
     }
 
     stmListScopeOffset=0; // for first offset after 8-byte RSP register, the offset will be decreased by the variable size
@@ -166,7 +166,7 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
 
         auto var=varIt.second.get();
         
-        stmListScopeOffset-=var->getSize();
+        stmListScopeOffset-=Type::getSize(var->getType().get());
 
         (*offsets)[var]=Offset(
             Compiler::RBP,

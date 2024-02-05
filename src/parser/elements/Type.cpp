@@ -188,3 +188,20 @@ SharedClassScope Type::Array::getClassScope(){
 
     return this->classScope;
 }
+
+int Type::getSize(Type *type_ptr){
+
+    auto type=*type_ptr;
+
+    if (type==*Type::BOOL)
+        return 1;
+    
+    if (type==*Type::CHAR||type==*Type::FLOAT||type==*Type::INT||type==*Type::UINT)
+        return 4;
+
+    if (type==*Type::DOUBLE||type==*Type::LONG||type==*Type::ULONG)
+        return 8;
+
+    // addresses are 8 bytes, TODO: need to handle if the system is 32-bit
+    return 8;
+}

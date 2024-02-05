@@ -42,6 +42,9 @@ class BuiltInFunScope;
 
 class Compiler:public ASTVisitor{
     private:
+        int funLabelsSize=0; // for numbering labels for functions
+        int constructorLabelsSize=0; // for numbering labels for constructors
+        int methodLabelsSize=0; // for numbering labels for methods in all classes
         std::wstring dataAsm=L"";
         std::wstring bssAsm=L"";
         std::wstring textAsm=
@@ -49,12 +52,20 @@ class Compiler:public ASTVisitor{
             L"\tglobal _start\n"
         ;
 
-        std::unordered_map<StmListScope*, std::wstring> labelsAsm;
+        std::unordered_map<StmListScope*, std::pair<std::wstring, std::wstring>> labelsAsm; // first of pair is for label name, second for the full label's text
 
-        void reserveSpaceForStmListLocals(std::wstring* labelAsm,int size);
-        void removeReservedSpaceForStmListLocals(std::wstring* labelAsm,int size);
-        void addExit(std::wstring* labelAsm, int errorCode);
+        std::wstring* currentLabelAsm;
+
+        void reserveSpaceOnStack(int size);
+        void removeReservedSpaceFromStack(int size);
+        void addExit(int errorCode);
+        void addExit0();
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
+        std::wstring getAsmValue(SharedIValue value);
+        std::wstring getAsmSize(int size);
+        std::wstring getRaxBySize(int size);
+        std::wstring getAsmLabelName(StmListScope* scope);
+        std::wstring* getAsmLabelInstructions(StmListScope* scope);
         
     public:
         void visit(PackageScope* scope)override;

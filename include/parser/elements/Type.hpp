@@ -34,6 +34,7 @@ class Type{
         static SharedType BOOL;
         static SharedType STRING;
         static std::shared_ptr<ArrayClassScope> ARRAY_CLASS;
+        static int getSize(Type* type_ptr);
 
         virtual SharedClassScope getClassScope();
         

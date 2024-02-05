@@ -46,7 +46,8 @@ BuiltInFunScope::BuiltInFunScope(
     SharedType returnType,
     std::vector<std::pair<std::wstring, SharedType>>params,
     std::function<void(Interpreter*)> invokeOnInterpreterFun,
-    bool isOperator
+    bool isOperator,
+    std::function<std::wstring()> onGenerateAsm
 ):
     FunScope(
         0,
@@ -58,7 +59,8 @@ BuiltInFunScope::BuiltInFunScope(
             std::make_shared<std::vector<SharedFunParam>>()
         )
     ),
-    invokeOnInterpreterFun(invokeOnInterpreterFun)
+    invokeOnInterpreterFun(invokeOnInterpreterFun),
+    onGenerateAsm(onGenerateAsm)
 {
     for(auto paramsIterator:params){
         decl->params->push_back(
@@ -76,7 +78,159 @@ void BuiltInFunScope::invokeOnInterpreter(Interpreter* interpreter){
     invokeOnInterpreterFun(interpreter);
 }
 
+std::wstring BuiltInFunScope::getGeneratedAsm(){
+    return onGenerateAsm();
+}
+
 void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
+
+    auto SYSCALL0=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
+    auto SYSCALL1=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
+    auto SYSCALL2=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RSI\n"
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
+    auto SYSCALL3=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RDX\n"
+                L"\tpop RSI\n"
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
+    auto SYSCALL4=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+            {L"_R10_",Type::LONG}, // r10
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop R10\n"
+                L"\tpop RDX\n"
+                L"\tpop RSI\n"
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
+    auto SYSCALL5=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+            {L"_R10_",Type::LONG}, // r10
+            {L"_R8_",Type::LONG} , // r8
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop R8\n"
+                L"\tpop R10\n"
+                L"\tpop RDX\n"
+                L"\tpop RSI\n"
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
+    auto SYSCALL6=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+            {L"_R10_",Type::LONG}, // r10
+            {L"_R8_",Type::LONG} , // r8
+            {L"_R9_",Type::LONG} , // r9
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop R9\n"
+                L"\tpop R8\n"
+                L"\tpop R10\n"
+                L"\tpop RDX\n"
+                L"\tpop RSI\n"
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tsyscall\n"
+            ;
+        }
+    );
 
     auto READ=std::make_shared<BuiltInFunScope>(
         READ_NAME,

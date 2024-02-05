@@ -1,5 +1,6 @@
 #pragma once
 #include "BoolValue.hpp"
+#include "Compiler.hpp"
 #include "DoubleValue.hpp"
 #include "FloatValue.hpp"
 #include "FunScope.hpp"
@@ -21,6 +22,8 @@ class Interpreter;
 class BuiltInFunScope:public FunScope{
     private:
         std::function<void(Interpreter*)> invokeOnInterpreterFun;
+        std::function<std::wstring()> onGenerateAsm;
+        
         static void addBuiltInFunctionsToIntClass();
         static void addBuiltInFunctionsToUIntClass();
         static void addBuiltInFunctionsToLongClass();
@@ -206,6 +209,7 @@ class BuiltInFunScope:public FunScope{
         static const inline auto BIT_COUNT_PARAM_NAME=L"عدد_البتات";
         static const inline auto INDEX_PARAM_NAME=L"رقم_العنصر";
         static const inline auto VALUE_PARAM_NAME=L"القيمة";
+        static const inline auto SYSCALL_NAME=L"استدعاء";
         static const inline auto READ_LINE_NAME=L"أدخل_";
         static const inline auto READ_NAME=L"أدخل";
         static const inline auto PRINT_NAME=L"اظهر";
@@ -227,12 +231,15 @@ class BuiltInFunScope:public FunScope{
             SharedType returnType,
             std::vector<std::pair<std::wstring, SharedType>> params,
             std::function<void(Interpreter*)> invokeOnInterpreterFun,
-            bool isOperator=false
+            bool isOperator=false,
+            std::function<std::wstring()> onGenerateAsm=[]{return L"";} // TODO: the nullptr is temporary before implementing all functions
         );
 
         ~BuiltInFunScope();
 
         void invokeOnInterpreter(Interpreter* interpreter);
+
+        std::wstring getGeneratedAsm();
 
         static void addBuiltInFunctionsTo(SharedFileScope fileScope);
 
