@@ -187,7 +187,7 @@ void Compiler::visit(FunInvokeExpression* ex){
 
     auto funNameAsm=getAsmLabelName(fun);
 
-    *currentLabelAsm+=L"\tjmp "+funNameAsm;
+    *currentLabelAsm+=L"\tcall "+funNameAsm;
 
     auto decl=fun->getDecl();
 
@@ -260,11 +260,11 @@ std::wstring Compiler::getAssemblyFile(){
 }
 
 void Compiler::reserveSpaceOnStack(int size){
-    *currentLabelAsm+=L"\tsub RSB, "+std::to_wstring(size)+L"\n";
+    *currentLabelAsm+=L"\tsub RSP, "+std::to_wstring(size)+L"\n";
 }
 
 void Compiler::removeReservedSpaceFromStack(int size){
-    *currentLabelAsm+=L"\tadd RSB, "+std::to_wstring(size)+L"\n";
+    *currentLabelAsm+=L"\tadd RSP, "+std::to_wstring(size)+L"\n";
 }
 
 void Compiler::addExit(int errorCode){
