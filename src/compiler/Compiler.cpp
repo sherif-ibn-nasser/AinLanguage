@@ -5,6 +5,7 @@
 #include "DoubleValue.hpp"
 #include "FloatValue.hpp"
 #include "FunDecl.hpp"
+#include "FunParam.hpp"
 #include "FunScope.hpp"
 #include "BuiltInFunScope.hpp"
 #include "IntValue.hpp"
@@ -122,8 +123,9 @@ void Compiler::visit(VarStm* stm){
     auto var=stm->getVar();
     auto raxSize=getRaxBySize(getVariableSize(var));
     auto offset=offsets[var.get()].toString();
+    auto comment=((*var->isValue())?L"; تعريف ثابت ":L"; تعريف متغير ")+*var->getName();
     stm->getEx()->accept(this);
-    *currentLabelAsm+=L"\tmov ["+offset+L"], "+raxSize+L"\n";
+    *currentLabelAsm+=L"\tmov ["+offset+L"], "+raxSize+L"\t"+comment+L"\n";
 }
 
 void Compiler::visit(AssignStatement* stm){
@@ -166,7 +168,8 @@ void Compiler::visit(VarAccessExpression* ex){
     auto var=ex->getVar();
     auto raxSize=getRaxBySize(getVariableSize(var));
     auto offset=offsets[var.get()].toString();
-    *currentLabelAsm+=L"\tmov "+raxSize+L", ["+offset+L"]\n";
+    auto comment=((*var->isValue())?L"; الوصول لثابت ":L"; الوصول لمتغير ")+*var->getName();
+    *currentLabelAsm+=L"\tmov "+raxSize+L", ["+offset+L"]\t"+comment+L"\n";
 }
 
 void Compiler::visit(FunInvokeExpression* ex){
@@ -174,25 +177,28 @@ void Compiler::visit(FunInvokeExpression* ex){
     auto fun=ex->getFun().get();
     auto args=ex->getArgs();
     auto params=fun->getParamsFromLocals();
+    auto paramsDecl=fun->getDecl()->params;
     auto argsSize=getVariablesSize(params);
 
     reserveSpaceOnStack(argsSize); // for args
 
     auto offset=argsSize;
 
-    for(auto argEx:*args){
+    for(auto i=0;i<args->size();i++){
+        auto argEx=(*args)[i];
         argEx->accept(this);
         auto argSize=Type::getSize(argEx->getReturnType().get());
         offset-=argSize;
         auto argOffsetStr=(offset==0)?L"":(L"+"+std::to_wstring(offset)); // the args are above rsp, so add L"+"
-        *currentLabelAsm+=L"\tmov [RSP"+argOffsetStr+L"], "+getRaxBySize(argSize)+L"\n";
+        auto comment=L"\t; مُعامِل "+*(*paramsDecl)[i]->name;
+        *currentLabelAsm+=L"\tmov [RSP"+argOffsetStr+L"], "+getRaxBySize(argSize)+comment+L"\n";
     }
 
     if (labelsAsm.find(fun)==labelsAsm.end())
         ex->getFun()->accept(this);
 
     if (dynamic_cast<BuiltInFunScope*>(fun))
-        return; // it will pop the stack automaticaly
+        return; // it will pop from the stack automaticaly
 
     auto funNameAsm=getAsmLabelName(fun);
 
@@ -278,17 +284,17 @@ void Compiler::removeReservedSpaceFromStack(int size){
 
 void Compiler::addExit(int errorCode){
     *currentLabelAsm+=
-        L"\tmov RAX, 60\n"
+        L"\tmov RAX, 60\t; إنهاء البرنامج\n"
         L"\tmov RDI, "+std::to_wstring(errorCode)+"\n"
-        L"\tsyscall\t; إنهاء البرنامج\n"
+        L"\tsyscall\n"
     ;
 }
 
 void Compiler::addExit0(){
     *currentLabelAsm+=
-        L"\tmov RAX, 60\n"
+        L"\tmov RAX, 60\t; إنهاء البرنامج\n"
         L"\txor RDI, RDI\n"
-        L"\tsyscall\t; إنهاء البرنامج\n"
+        L"\tsyscall\n"
     ;
 }
 
