@@ -13,9 +13,10 @@ class CompilerVarsOffsetSetter:public ASTVisitor{
         int stmListScopeOffset;
         int globalVarsOffset=0; // 1st address in data segment
         struct Offset{
-            Offset(std::string reg, int value);
+            Offset(std::wstring reg, int value);
             Offset();
-            std::string reg;
+            std::wstring toString();
+            std::wstring reg;
             int value=0;
         };
         std::unordered_map<Variable*, Offset>* offsets;

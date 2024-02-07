@@ -119,7 +119,11 @@ void Compiler::visit(StmListScope* scope){
 }
 
 void Compiler::visit(VarStm* stm){
-    // TODO    
+    auto var=stm->getVar();
+    auto raxSize=getRaxBySize(getVariableSize(var));
+    auto offset=offsets[var.get()].toString();
+    stm->getEx()->accept(this);
+    *currentLabelAsm+=L"\tmov ["+offset+L"], "+raxSize+L"\n";
 }
 
 void Compiler::visit(AssignStatement* stm){
@@ -159,7 +163,10 @@ void Compiler::visit(ExpressionStatement* stm){
 }
 
 void Compiler::visit(VarAccessExpression* ex){
-    // TODO    
+    auto var=ex->getVar();
+    auto raxSize=getRaxBySize(getVariableSize(var));
+    auto offset=offsets[var.get()].toString();
+    *currentLabelAsm+=L"\tmov "+raxSize+L", ["+offset+L"]\n";
 }
 
 void Compiler::visit(FunInvokeExpression* ex){
@@ -181,9 +188,11 @@ void Compiler::visit(FunInvokeExpression* ex){
         *currentLabelAsm+=L"\tmov [RSP"+argOffsetStr+L"], "+getRaxBySize(argSize)+L"\n";
     }
 
-    if (labelsAsm.find(fun)==labelsAsm.end()) {
+    if (labelsAsm.find(fun)==labelsAsm.end())
         ex->getFun()->accept(this);
-    }
+
+    if (dynamic_cast<BuiltInFunScope*>(fun))
+        return; // it will pop the stack automaticaly
 
     auto funNameAsm=getAsmLabelName(fun);
 
@@ -283,10 +292,14 @@ void Compiler::addExit0(){
     ;
 }
 
+int Compiler::getVariableSize(SharedVariable var){
+    return Type::getSize(var->getType().get());
+}
+
 int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
     auto size=0;
     for (auto varIt:*vars){
-        size+=Type::getSize(varIt.second->getType().get());
+        size+=getVariableSize(varIt.second);
     }
     return size;
 }

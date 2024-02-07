@@ -8,15 +8,24 @@
 #include "Variable.hpp"
 #include <string>
 
-CompilerVarsOffsetSetter::Offset::Offset(std::string reg, int value):
+CompilerVarsOffsetSetter::Offset::Offset(std::wstring reg, int value):
     reg(reg),
     value(value)
 {}
 
 CompilerVarsOffsetSetter::Offset::Offset():
-    reg(""),
+    reg(L""),
     value(0)
 {}
+
+std::wstring CompilerVarsOffsetSetter::Offset::toString(){
+    
+    if(value>0)
+        return reg+L"+"+std::to_wstring(value);
+    if(value<0)
+        return reg+std::to_wstring(value);
+    return reg;
+}
 
 CompilerVarsOffsetSetter::CompilerVarsOffsetSetter(
     std::unordered_map<Variable*, Offset>*offsets
@@ -145,7 +154,9 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
 
     auto locals=scope->getLocals();
 
-    stmListScopeOffset=8; // for first offset before 8-byte RSP register, TODO: need to handle if the system is 32-bit
+    auto nonParams=scope->getNonParamsFromLocals();
+
+    stmListScopeOffset=16; // for first offset before 8-byte RBP register and return address, TODO: need to handle if the system is 32-bit
 
     for(auto paramIt=paramsVec->rbegin();paramIt!=paramsVec->rend();paramIt++){
 
@@ -157,12 +168,12 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
             stmListScopeOffset
         );
 
-        stmListScopeOffset+=Type::getSize((*locals)[name]->getType().get());
+        stmListScopeOffset+=Type::getSize(var->getType().get());
     }
 
     stmListScopeOffset=0; // for first offset after 8-byte RSP register, the offset will be decreased by the variable size
 
-    for(auto varIt:*scope->getNonParamsFromLocals()){
+    for(auto varIt:*nonParams){
 
         auto var=varIt.second.get();
         

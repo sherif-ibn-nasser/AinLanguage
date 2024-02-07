@@ -29,6 +29,7 @@
 #include "ULongValue.hpp"
 #include "UnitValue.hpp"
 #include "ArrayClassScope.hpp"
+#include "Variable.hpp"
 #include "ainio.hpp"
 #include "FileScope.hpp"
 #include "runtime/NumberFormatException.hpp"
@@ -63,12 +64,13 @@ BuiltInFunScope::BuiltInFunScope(
     onGenerateAsm(onGenerateAsm)
 {
     for(auto paramsIterator:params){
+        auto name=std::make_shared<std::wstring>(paramsIterator.first);
+        auto type=paramsIterator.second;
+        auto isVal=std::make_shared<bool>(true);
         decl->params->push_back(
-            std::make_shared<FunParam>(
-                std::make_shared<std::wstring>(paramsIterator.first),
-                paramsIterator.second
-            )
+            std::make_shared<FunParam>(name,type)
         );
+        (*locals)[*name]=std::make_shared<Variable>(name,type,isVal);
     }
 }
 
@@ -407,6 +409,13 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
     );
 
     auto builtInFunctions={
+        SYSCALL0,
+        SYSCALL1,
+        SYSCALL2,
+        SYSCALL3,
+        SYSCALL4,
+        SYSCALL5,
+        SYSCALL6,
         READ,READ_LINE,
         PRINT_INT,PRINTLN_INT,
         PRINT_UINT,PRINTLN_UINT,

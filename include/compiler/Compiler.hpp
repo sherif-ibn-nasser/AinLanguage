@@ -60,6 +60,7 @@ class Compiler:public ASTVisitor{
         void removeReservedSpaceFromStack(int size);
         void addExit(int errorCode);
         void addExit0();
+        int getVariableSize(SharedVariable var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
         std::wstring getAsmValue(SharedIValue value);
         std::wstring getAsmSize(int size);
@@ -104,13 +105,13 @@ class Compiler:public ASTVisitor{
 
         std::unordered_map<Variable*, CompilerVarsOffsetSetter::Offset> offsets;
 
-        static const inline auto RAX="RAX";
-        static const inline auto RBX="RBX";
-        static const inline auto RCX="RCX";
-        static const inline auto RDX="RDX";
-        static const inline auto RDI="RDI";
-        static const inline auto RSP="RSP";
-        static const inline auto RBP="RBP";
-        static const inline auto RDS="RDS";
-        static const inline auto RSS="RSS";
+        static const inline auto RAX=L"RAX";
+        static const inline auto RBX=L"RBX";
+        static const inline auto RCX=L"RCX";
+        static const inline auto RDX=L"RDX";
+        static const inline auto RDI=L"RDI";
+        static const inline auto RSP=L"RSP";
+        static const inline auto RBP=L"RBP";
+        static const inline auto RDS=L"RDS";
+        static const inline auto RSS=L"RSS";
 };
