@@ -32,7 +32,7 @@ void Compiler::visit(FunScope* scope){
 
     auto decl=scope->getDecl();
     auto isConstructor=decl->isConstructor();
-    auto parentClass=BaseScope::toClassScope(scope->getParentScope()); // may not exist if it's a global function
+    auto parentClass=BaseScope::getContainingClass(scope->getParentScope()); // may not exist if it's a global function
     auto isMain=scope->getName()==L"البداية";
     std::wstring labelName=L"";
 
@@ -86,6 +86,8 @@ void Compiler::visit(FunScope* scope){
     for(auto stm:*scope->getStmList()){
         stm->accept(this);
     }
+
+    /* TODO: The following code should be removed after doing data-flow analysis*/
 
     if(isConstructor)
         *currentLabelAsm+=L"\tmov RAX, [RBX]\n";
@@ -157,7 +159,19 @@ void Compiler::visit(ContinueStatement* stm){
 }
 
 void Compiler::visit(ReturnStatement* stm){
-    // TODO    
+    auto fun=BaseScope::getContainingFun(stm->getRunScope()).get();
+
+    stm->getEx()->accept(this);
+
+    if(fun->getDecl()->isConstructor())
+        *currentLabelAsm+=L"\tmov RAX, [RBX]\n";
+
+    *currentLabelAsm+=
+        L"\tmov RSP, RBP\n"
+        L"\tpop RBP\n"
+        L"\tret\n"
+    ;
+
 }
 
 void Compiler::visit(ExpressionStatement* stm){
@@ -231,7 +245,7 @@ void Compiler::visit(LiteralExpression* ex){
 }
 
 void Compiler::visit(UnitExpression* ex){
-    // TODO    
+    *currentLabelAsm+=L"\txor RAX, RAX\n";
 }
 
 void Compiler::visit(LogicalExpression* ex){
