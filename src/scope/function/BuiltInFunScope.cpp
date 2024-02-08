@@ -101,6 +101,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             ;
         }
     );
+
     auto SYSCALL1=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -118,6 +119,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             ;
         }
     );
+
     auto SYSCALL2=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -137,6 +139,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             ;
         }
     );
+
     auto SYSCALL3=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -158,6 +161,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             ;
         }
     );
+
     auto SYSCALL4=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -181,6 +185,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             ;
         }
     );
+
     auto SYSCALL5=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -206,6 +211,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             ;
         }
     );
+
     auto SYSCALL6=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -230,6 +236,61 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
                 L"\tpop RDI\n"
                 L"\tpop RAX\n"
                 L"\tsyscall\n"
+            ;
+        }
+    );
+
+    auto BRK=std::make_shared<BuiltInFunScope>(
+        BRK_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"الإزاحة",Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RDI\n"
+                L"\tmov RSI, [brk_end]\n"
+                L"\tlea RDI, [RDI+RSI]\n"
+                L"\tmov RAX, 12\n"
+                L"\tsyscall\n"
+                L"\tmov [brk_end], RAX\n"
+            ;
+        }
+    );
+
+    auto WRITE_LONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {LONG_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RDI\n"
+                L"\tpop RAX\n"
+                L"\tmov [RAX], RDI\n"
+                L"\txor RAX, RAX\n" // It returns 0 after a successful write
+            ;
+        }
+    );
+
+    auto READ_LONG_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_LONG_FROM_ADDRESS_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tpop RAX\n"
+                L"\tmov RAX, [RAX]\n"
             ;
         }
     );
@@ -416,6 +477,9 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         SYSCALL4,
         SYSCALL5,
         SYSCALL6,
+        BRK,
+        WRITE_LONG_TO_ADDRESS,
+        READ_LONG_FROM_ADDRESS,
         READ,READ_LINE,
         PRINT_INT,PRINTLN_INT,
         PRINT_UINT,PRINTLN_UINT,

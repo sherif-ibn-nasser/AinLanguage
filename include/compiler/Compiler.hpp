@@ -45,7 +45,9 @@ class Compiler:public ASTVisitor{
         int funLabelsSize=0; // for numbering labels for functions
         int constructorLabelsSize=0; // for numbering labels for constructors
         int methodLabelsSize=0; // for numbering labels for methods in all classes
-        std::wstring dataAsm=L"";
+        std::wstring dataAsm=
+            L"section .data\n"
+            L"\tbrk_end dq 0\n";
         std::wstring bssAsm=L"";
         std::wstring textAsm=
             L"section .text\n"

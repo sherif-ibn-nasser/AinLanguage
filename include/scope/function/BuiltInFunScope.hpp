@@ -209,7 +209,11 @@ class BuiltInFunScope:public FunScope{
         static const inline auto BIT_COUNT_PARAM_NAME=L"عدد_البتات";
         static const inline auto INDEX_PARAM_NAME=L"رقم_العنصر";
         static const inline auto VALUE_PARAM_NAME=L"القيمة";
+        static const inline auto ADDRESS_PARAM_NAME=L"العنوان";
         static const inline auto SYSCALL_NAME=L"استدعاء";
+        static const inline auto BRK_NAME=L"إزاحة_الذاكرة";
+        static const inline auto WRITE_TO_ADDRESS_NAME=L"اكتب";
+        static const inline auto READ_LONG_FROM_ADDRESS_NAME=L"اقرأ_كبير";
         static const inline auto READ_LINE_NAME=L"أدخل_";
         static const inline auto READ_NAME=L"أدخل";
         static const inline auto PRINT_NAME=L"اظهر";

@@ -354,15 +354,19 @@ void LexerLine::skipAfterNonDecIntDigitArray(NUM_SYS numSys){
     tokenEndIndex++;
     skipAfterDigitArray(tokenEndIndex+1,numSys);
 
-    auto stopChar=charAt(tokenEndIndex+1); // where the skipping stopped
+    auto stopChar=std::towlower(charAt(tokenEndIndex+1)); // where the skipping stopped
 
     // user types 0b12, ob1a, 0O128, ,0b12s, 0xfg etc.
     if (
-        (iswxdigit(stopChar) && numSys!=NUM_SYS::HEX)
-        ||
-        isAinAlpha(stopChar)
+        stopChar!=L'u'&&stopChar!=L'l'
+        &&
+        (
+            (iswxdigit(stopChar) && numSys!=NUM_SYS::HEX)
+            ||
+            isAinAlpha(stopChar)
+        )
     )
-        throw InvalidNumberSystemDigitException(lineNumber,getCurrentTokenVal()+stopChar);
+        throw InvalidNumberSystemDigitException(lineNumber,getCurrentTokenVal()+(wchar_t)stopChar);
 }
 
 NumberToken::NUMBER_TYPE LexerLine::skipAfterDecDigitArray(){
