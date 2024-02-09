@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -35,6 +37,7 @@
 #include "Interpreter.hpp"
 #include "VarsOffsetSetter.hpp"
 #include "ainio.hpp"
+#include "string_helper.hpp"
 
 auto typeParserProvider=[](SharedTokensIterator iterator,SharedBaseScope scope){
     return std::make_shared<TypeParser>(
@@ -124,6 +127,10 @@ bool isMainFileOption(std::string o){
     return o=="-m" || o=="--main";
 }
 
+std::string removeExtension(std::string fileName){
+    return fileName.substr(0, fileName.find_last_of("."));
+}
+
 int main(int argc, char * argv[]){
 
     // TODO: show info about ain and available options
@@ -208,9 +215,23 @@ int main(int argc, char * argv[]){
 
         main->accept(compiler);
 
-        ainprint(compiler->getAssemblyFile(), false);
+        auto generatedAsm=compiler->getAssemblyFile();
+
+        // ainprint(generatedAsm, false);
 
         delete compiler;
+
+        auto outputBinName=removeExtension(filesStack[0]);
+        auto outputObjFileName=outputBinName+".o";
+        auto outputAsmFileName=outputBinName+".asm";
+
+        std::ofstream outputAsmFile(outputAsmFileName);
+        outputAsmFile<<toCharPointer(generatedAsm);
+        outputAsmFile.close();
+
+        auto command="nasm -felf64 -o "+outputObjFileName+" -gdwarf "+outputAsmFileName+"; ld "+outputObjFileName+" -o "+outputBinName;
+
+        system(command.c_str());
         
         /*
         PackageScope::AIN_PACKAGE->accept(interpreter); // To init global vars
