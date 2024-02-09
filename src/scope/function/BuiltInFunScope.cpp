@@ -260,6 +260,26 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
+    auto WRITE_CHAR_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {CHAR_PARAM_NAME,Type::CHAR},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](){
+            return
+                L"\tmov EDI, [RSP]\n"
+                L"\tadd RSP, 4\n"
+                L"\tpop RAX\n"
+                L"\tmov [RAX], EDI\n"
+                L"\txor RAX, RAX\n" // It returns 0 after a successful write
+            ;
+        }
+    );
+
     auto WRITE_LONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
         Type::LONG,
@@ -478,6 +498,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         SYSCALL5,
         SYSCALL6,
         BRK,
+        WRITE_CHAR_TO_ADDRESS,
         WRITE_LONG_TO_ADDRESS,
         READ_LONG_FROM_ADDRESS,
         READ,READ_LINE,

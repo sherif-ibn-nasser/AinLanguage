@@ -289,10 +289,14 @@ std::wstring Compiler::getAssemblyFile(){
 }
 
 void Compiler::reserveSpaceOnStack(int size){
+    if(size==0)
+        return;
     *currentLabelAsm+=L"\tsub RSP, "+std::to_wstring(size)+L"\n";
 }
 
 void Compiler::removeReservedSpaceFromStack(int size){
+    if(size==0)
+        return;
     *currentLabelAsm+=L"\tadd RSP, "+std::to_wstring(size)+L"\n";
 }
 
@@ -329,8 +333,12 @@ std::wstring Compiler::getAsmValue(SharedIValue value){
     if(auto boolVal=std::dynamic_pointer_cast<BoolValue>(value))
         return (boolVal->getValue())?L"1":L"0";
     
-    if(auto charVal=std::dynamic_pointer_cast<CharValue>(value))
-        return L"\'"+charVal->toString()+L"\'";
+    if(auto charVal=std::dynamic_pointer_cast<CharValue>(value)){
+        auto val=charVal->toString();
+        if(val==L"\n")
+            return L"0x0a";
+        return L"\'"+val+L"\'";
+    }
     
     if(auto intVal=std::dynamic_pointer_cast<IntValue>(value)){
         return intVal->toString();
