@@ -37,6 +37,7 @@
 #include "ThisExpression.hpp"
 #include "ThisVarAccessExpression.hpp"
 #include "ThisFunInvokeExpression.hpp"
+#include "Assembler.hpp"
 
 class BuiltInFunScope;
 
@@ -54,21 +55,14 @@ class Compiler:public ASTVisitor{
             L"\tglobal _start\n"
         ;
 
-        std::unordered_map<StmListScope*, std::pair<std::wstring, std::wstring>> labelsAsm; // first of pair is for label name, second for the full label's text
+        std::unordered_map<StmListScope*, Assembler::AsmLabel> labelsAsm; // first of pair is for label name, second for the full label's text
 
-        std::wstring* currentLabelAsm;
-
-        void reserveSpaceOnStack(int size);
-        void removeReservedSpaceFromStack(int size);
-        void addExit(int errorCode);
-        void addExit0();
+        Assembler::AsmLabel* currentAsmLabel;
+        
         int getVariableSize(SharedVariable var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
-        std::wstring getAsmValue(SharedIValue value);
-        std::wstring getAsmSize(int size);
-        std::wstring getRaxBySize(int size);
         std::wstring getAsmLabelName(StmListScope* scope);
-        std::wstring* getAsmLabelInstructions(StmListScope* scope);
+        Assembler::AsmLabel* getAsmLabelInstructions(StmListScope* scope);
         
     public:
         void visit(PackageScope* scope)override;
@@ -107,13 +101,4 @@ class Compiler:public ASTVisitor{
 
         std::unordered_map<Variable*, CompilerVarsOffsetSetter::Offset> offsets;
 
-        static const inline auto RAX=L"RAX";
-        static const inline auto RBX=L"RBX";
-        static const inline auto RCX=L"RCX";
-        static const inline auto RDX=L"RDX";
-        static const inline auto RDI=L"RDI";
-        static const inline auto RSP=L"RSP";
-        static const inline auto RBP=L"RBP";
-        static const inline auto RDS=L"RDS";
-        static const inline auto RSS=L"RSS";
 };

@@ -1,4 +1,5 @@
 #pragma once
+#include "Assembler.hpp"
 #include "PackageScope.hpp"
 #include "FileScope.hpp"
 #include "ClassScope.hpp"
@@ -13,10 +14,9 @@ class CompilerVarsOffsetSetter:public ASTVisitor{
         int stmListScopeOffset;
         int globalVarsOffset=0; // 1st address in data segment
         struct Offset{
-            Offset(std::wstring reg, int value);
+            Offset(Assembler::AsmOperand reg, int value);
             Offset();
-            std::wstring toString();
-            std::wstring reg;
+            Assembler::AsmOperand reg;
             int value=0;
         };
         std::unordered_map<Variable*, Offset>* offsets;

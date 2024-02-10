@@ -45,6 +45,7 @@ add_library(ainsrc
     src/semantics/ImplicitVarTypeChecker.cpp
     src/compiler/CompilerVarsOffsetSetter.cpp
     src/compiler/Compiler.cpp
+    src/compiler/Assembler.cpp
     src/expression/OperatorFunInvokeExpression.cpp
     src/expression/NewObjectExpression.cpp
     src/expression/value/LongValue.cpp

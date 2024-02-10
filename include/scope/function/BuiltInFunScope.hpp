@@ -1,4 +1,5 @@
 #pragma once
+#include "Assembler.hpp"
 #include "BoolValue.hpp"
 #include "Compiler.hpp"
 #include "DoubleValue.hpp"
@@ -17,12 +18,13 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 class Interpreter;
 class BuiltInFunScope:public FunScope{
     private:
         std::function<void(Interpreter*)> invokeOnInterpreterFun;
-        std::function<std::wstring()> onGenerateAsm;
+        std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm;
         
         static void addBuiltInFunctionsToIntClass();
         static void addBuiltInFunctionsToUIntClass();
@@ -236,14 +238,16 @@ class BuiltInFunScope:public FunScope{
             std::vector<std::pair<std::wstring, SharedType>> params,
             std::function<void(Interpreter*)> invokeOnInterpreterFun,
             bool isOperator=false,
-            std::function<std::wstring()> onGenerateAsm=[]{return L"";} // TODO: the nullptr is temporary before implementing all functions
+            std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm=[]{
+                return std::vector<Assembler::AsmInstruction>{};
+            } // TODO: the nullptr is temporary before implementing all functions
         );
 
         ~BuiltInFunScope();
 
         void invokeOnInterpreter(Interpreter* interpreter);
 
-        std::wstring getGeneratedAsm();
+        std::vector<Assembler::AsmInstruction> getGeneratedAsm();
 
         static void addBuiltInFunctionsTo(SharedFileScope fileScope);
 

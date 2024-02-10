@@ -1,6 +1,7 @@
 #include "CompilerVarsOffsetSetter.hpp"
+#include "Assembler.hpp"
 #include "ClassScope.hpp"
-#include "Compiler.hpp"
+#include "LoopScope.hpp"
 #include "FunDecl.hpp"
 #include "FunParam.hpp"
 #include "Type.hpp"
@@ -8,24 +9,15 @@
 #include "Variable.hpp"
 #include <string>
 
-CompilerVarsOffsetSetter::Offset::Offset(std::wstring reg, int value):
+CompilerVarsOffsetSetter::Offset::Offset(Assembler::AsmOperand reg, int value):
     reg(reg),
     value(value)
 {}
 
 CompilerVarsOffsetSetter::Offset::Offset():
-    reg(L""),
+    reg({}),
     value(0)
 {}
-
-std::wstring CompilerVarsOffsetSetter::Offset::toString(){
-    
-    if(value>0)
-        return reg+L"+"+std::to_wstring(value);
-    if(value<0)
-        return reg+std::to_wstring(value);
-    return reg;
-}
 
 CompilerVarsOffsetSetter::CompilerVarsOffsetSetter(
     std::unordered_map<Variable*, Offset>*offsets
@@ -34,7 +26,7 @@ CompilerVarsOffsetSetter::CompilerVarsOffsetSetter(
 {
     auto arrayCapacityProperty=Type::ARRAY_CLASS->getPublicVariables()->at(*ArrayClassScope::CAPACITY_NAME).get();
     (*offsets)[arrayCapacityProperty]=Offset(
-        Compiler::RBX,
+        Assembler::RBX(),
         0
     );
 }
@@ -49,7 +41,7 @@ void CompilerVarsOffsetSetter::offsetStmListScope(StmListScope* scope){
         stmListScopeOffset-=Type::getSize(var->getType().get());
         
         (*offsets)[var]=Offset(
-            Compiler::RBP,
+            Assembler::RBP(),
             stmListScopeOffset
         );
 
@@ -83,7 +75,7 @@ void CompilerVarsOffsetSetter::visit(FileScope* scope){
     }
 
     // FIXME: how to store global variables and constants
-    
+    /*
     for(auto varIt:*scope->getPublicVariables()){
         auto var=varIt.second.get();
         (*offsets)[var]=Offset(
@@ -101,6 +93,7 @@ void CompilerVarsOffsetSetter::visit(FileScope* scope){
         );
         globalVarsOffset+=var->getType()->getClassScope()->getSize()+8; // + 8 bytes for the address
     }
+    */
 
     /** TODO
     if(globalVarsOffset>=DATA_SIZE)
@@ -116,7 +109,7 @@ void CompilerVarsOffsetSetter::visit(ClassScope* scope){
         auto var=varIt.second.get();
 
         (*offsets)[var]=Offset(
-            Compiler::RBX,
+            Assembler::RBX(),
             varsOffset
         );
 
@@ -127,7 +120,7 @@ void CompilerVarsOffsetSetter::visit(ClassScope* scope){
         auto var=varIt.second.get();
 
         (*offsets)[var]=Offset(
-            Compiler::RBX,
+            Assembler::RBX(),
             varsOffset
         );
 
@@ -164,7 +157,7 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
         auto var=(*locals)[name].get();
 
         (*offsets)[var]=Offset(
-            Compiler::RBP,
+            Assembler::RBP(),
             stmListScopeOffset
         );
 
@@ -180,7 +173,7 @@ void CompilerVarsOffsetSetter::visit(FunScope* scope){
         stmListScopeOffset-=Type::getSize(var->getType().get());
 
         (*offsets)[var]=Offset(
-            Compiler::RBP,
+            Assembler::RBP(),
             stmListScopeOffset
         );
 

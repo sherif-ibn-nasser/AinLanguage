@@ -1,4 +1,5 @@
 #include "Compiler.hpp"
+#include "Assembler.hpp"
 #include "BaseScope.hpp"
 #include "BoolValue.hpp"
 #include "CharValue.hpp"
@@ -34,42 +35,36 @@ void Compiler::visit(FunScope* scope){
     auto isConstructor=decl->isConstructor();
     auto parentClass=BaseScope::getContainingClass(scope->getParentScope()); // may not exist if it's a global function
     auto isMain=scope->getName()==L"البداية";
-    std::wstring labelName=L"";
+    std::wstring label,comment;
 
-    if (isConstructor)
-        labelName=L"constructor"+std::to_wstring(++constructorLabelsSize);
+    if (isConstructor){
+        label=L"constructor"+std::to_wstring(++constructorLabelsSize);
+        comment=L"دالة "+decl->returnType->getClassScope()->getName()+L"::"+decl->toString();
+    }
 
-    else if (parentClass)
-        *currentLabelAsm+=L"method"+std::to_wstring(methodLabelsSize);
+    else if (parentClass){
+        label=L"method"+std::to_wstring(methodLabelsSize);
+        comment=L"دالة "+parentClass->getName()+L"::"+decl->toString();
+    }
 
-    else if (isMain)
-        labelName=L"_start";
+    else if (isMain){
+        label=L"_start";
+        comment=L"دالة البداية";
+    }
 
-    else
-        labelName=L"fun"+std::to_wstring(++funLabelsSize);
+    else{
+        label=L"fun"+std::to_wstring(++funLabelsSize);
+        comment=L"دالة "+scope->getDecl()->toString();
+    }
     
-    labelsAsm[scope]={labelName,L""};
-    auto prevLabelAsm=currentLabelAsm;
-    currentLabelAsm=getAsmLabelInstructions(scope);
-    *currentLabelAsm+=labelName+L":";
-    
-    // Add comment
-    if (isConstructor)
-        *currentLabelAsm+=L"\t; دالة "+decl->returnType->getClassScope()->getName()+L"::"+decl->toString()+L":\n";
+    labelsAsm[scope]=Assembler::AsmLabel{.label=label, .comment=comment};
 
-    else if(parentClass)
-        *currentLabelAsm+=L"\t; دالة "+parentClass->getName()+L"::"+decl->toString()+L":\n";
+    auto prevLabelAsm=currentAsmLabel;
+    currentAsmLabel=getAsmLabelInstructions(scope);
 
-    else if (isMain)
-        *currentLabelAsm+=L"\t; دالة البداية\n";
 
-    else
-        *currentLabelAsm+=L"\t; دالة "+scope->getDecl()->toString()+L"\n";
-
-    *currentLabelAsm+=
-        L"\tpush RBP\n"
-        L"\tmov RBP, RSP\n"
-    ;
+    *currentAsmLabel+=Assembler::push(Assembler::RBP());
+    *currentAsmLabel+=Assembler::mov(Assembler::RBP(), Assembler::RSP());
 
     if(isConstructor)
         decl->returnType->getClassScope()->accept(this);
@@ -80,7 +75,7 @@ void Compiler::visit(FunScope* scope){
 
     if(nonParams->size()>0){
         nonParamsReservedSize=getVariablesSize(nonParams);
-        reserveSpaceOnStack(nonParamsReservedSize);
+        Assembler::reserveSpaceOnStack(nonParamsReservedSize);
     }
 
     for(auto stm:*scope->getStmList()){
@@ -90,27 +85,29 @@ void Compiler::visit(FunScope* scope){
     /* TODO: The following code should be removed after doing data-flow analysis*/
 
     if(isConstructor)
-        *currentLabelAsm+=L"\tmov RAX, [RBX]\n";
+        *currentAsmLabel+=
+            Assembler::mov(
+                Assembler::RAX(),
+                Assembler::addressMov(Assembler::RBX())
+            );
 
     else if(*scope->getReturnType()==*Type::UNIT)
-        *currentLabelAsm+=L"\txor RAX, RAX\n";
+        *currentAsmLabel+=Assembler::zero(Assembler::RAX());
 
-    *currentLabelAsm+=
-        L"\tmov RSP, RBP\n"
-        L"\tpop RBP\n"
-    ;
-
+    *currentAsmLabel+=Assembler::mov(Assembler::RSP(), Assembler::RBP());
+    *currentAsmLabel+=Assembler::pop(Assembler::RBP());
+    
     if(isMain)
-        addExit0();
+        *currentAsmLabel+=Assembler::exit(0);
     else
-        *currentLabelAsm+=L"\tret\n";
+        *currentAsmLabel+=Assembler::ret();
 
-    currentLabelAsm=prevLabelAsm;
+    currentAsmLabel=prevLabelAsm;
     
 }
 
 void Compiler::visit(BuiltInFunScope* scope){
-    *currentLabelAsm+=scope->getGeneratedAsm();
+    *currentAsmLabel+=scope->getGeneratedAsm();
 }
 
 void Compiler::visit(LoopScope* scope){
@@ -123,11 +120,16 @@ void Compiler::visit(StmListScope* scope){
 
 void Compiler::visit(VarStm* stm){
     auto var=stm->getVar();
-    auto raxSize=getRaxBySize(getVariableSize(var));
-    auto offset=offsets[var.get()].toString();
-    auto comment=((*var->isValue())?L"; تعريف ثابت ":L"; تعريف متغير ")+*var->getName();
+    auto varSize=getVariableSize(var);
+    auto offset=offsets[var.get()];
+    auto comment=((*var->isValue())?L"تعريف ثابت ":L"تعريف متغير ")+*var->getName()+L": "+var->getType()->getClassScope()->getName();
     stm->getEx()->accept(this);
-    *currentLabelAsm+=L"\tmov ["+offset+L"], "+raxSize+L"\t"+comment+L"\n";
+    *currentAsmLabel+=Assembler::mov(
+        Assembler::addressMov(offset.reg, offset.value),
+        Assembler::RAX(varSize),
+        Assembler::AsmInstruction::IMPLICIT,
+        comment
+    );
 }
 
 void Compiler::visit(AssignStatement* stm){
@@ -164,14 +166,15 @@ void Compiler::visit(ReturnStatement* stm){
     stm->getEx()->accept(this);
 
     if(fun->getDecl()->isConstructor())
-        *currentLabelAsm+=L"\tmov RAX, [RBX]\n";
+        *currentAsmLabel+=
+            Assembler::mov(
+                Assembler::RAX(),
+                Assembler::addressMov(Assembler::RBX())
+            );
 
-    *currentLabelAsm+=
-        L"\tmov RSP, RBP\n"
-        L"\tpop RBP\n"
-        L"\tret\n"
-    ;
-
+    *currentAsmLabel+=Assembler::mov(Assembler::RSP(), Assembler::RBP());
+    *currentAsmLabel+=Assembler::pop(Assembler::RBP());
+    *currentAsmLabel+=Assembler::ret();
 }
 
 void Compiler::visit(ExpressionStatement* stm){
@@ -180,10 +183,16 @@ void Compiler::visit(ExpressionStatement* stm){
 
 void Compiler::visit(VarAccessExpression* ex){
     auto var=ex->getVar();
-    auto raxSize=getRaxBySize(getVariableSize(var));
-    auto offset=offsets[var.get()].toString();
-    auto comment=((*var->isValue())?L"; الوصول لثابت ":L"; الوصول لمتغير ")+*var->getName();
-    *currentLabelAsm+=L"\tmov "+raxSize+L", ["+offset+L"]\t"+comment+L"\n";
+    auto varSize=getVariableSize(var);
+    auto offset=offsets[var.get()];
+    auto comment=((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")+*var->getName();
+    *currentAsmLabel+=
+        Assembler::mov(
+            Assembler::RAX(varSize),
+            Assembler::addressMov(offset.reg, offset.value),
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        );
 }
 
 void Compiler::visit(FunInvokeExpression* ex){
@@ -194,7 +203,7 @@ void Compiler::visit(FunInvokeExpression* ex){
     auto paramsDecl=fun->getDecl()->params;
     auto argsSize=getVariablesSize(params);
 
-    reserveSpaceOnStack(argsSize); // for args
+    *currentAsmLabel+=Assembler::reserveSpaceOnStack(argsSize); // for args
 
     auto offset=argsSize;
 
@@ -203,9 +212,14 @@ void Compiler::visit(FunInvokeExpression* ex){
         argEx->accept(this);
         auto argSize=Type::getSize(argEx->getReturnType().get());
         offset-=argSize;
-        auto argOffsetStr=(offset==0)?L"":(L"+"+std::to_wstring(offset)); // the args are above rsp, so add L"+"
-        auto comment=L"\t; مُعامِل "+*(*paramsDecl)[i]->name;
-        *currentLabelAsm+=L"\tmov [RSP"+argOffsetStr+L"], "+getRaxBySize(argSize)+comment+L"\n";
+        auto comment=L"مُعامِل "+*(*paramsDecl)[i]->name;
+        *currentAsmLabel+=
+            Assembler::mov(
+                Assembler::addressMov(Assembler::RSP(), offset),
+                Assembler::RAX(argSize),
+                Assembler::AsmInstruction::IMPLICIT,
+                comment
+            );
     }
 
     if (labelsAsm.find(fun)==labelsAsm.end())
@@ -215,17 +229,21 @@ void Compiler::visit(FunInvokeExpression* ex){
         return; // it will pop from the stack automaticaly
 
     auto funNameAsm=getAsmLabelName(fun);
-
-    *currentLabelAsm+=L"\tcall "+funNameAsm;
-
     auto decl=fun->getDecl();
+    std::wstring comment;
 
     if(auto parentClass=BaseScope::toClassScope(fun->getParentScope()))
-        *currentLabelAsm+=L"\t; استدعاء دالة "+parentClass->getName()+L"::"+decl->toString()+L":\n";
+        comment=L"استدعاء دالة "+parentClass->getName()+L"::"+decl->toString();
     else
-        *currentLabelAsm+=L"\t; استدعاء دالة "+decl->toString()+L"\n";
+        comment=L"استدعاء دالة "+decl->toString();
 
-    removeReservedSpaceFromStack(argsSize);
+    *currentAsmLabel+=
+        Assembler::call(
+            Assembler::AsmOperand{.type=Assembler::AsmOperand::LABEL, .value=funNameAsm},
+            comment
+        );
+
+    Assembler::removeReservedSpaceFromStack(argsSize);
 
     // The return value is stored in rax
 }
@@ -240,12 +258,62 @@ void Compiler::visit(NewArrayExpression* ex){
 
 void Compiler::visit(LiteralExpression* ex){
     // TODO: strings
-    auto valAsm=getAsmValue(ex->getValue());
-    *currentLabelAsm+=L"\tmov RAX, "+valAsm+L"\n";
+    auto value=ex->getValue();
+    Assembler::AsmOperand imm;
+    if(auto boolVal=std::dynamic_pointer_cast<BoolValue>(value))
+        imm=(boolVal->getValue())
+            ?Assembler::imm(L"1")
+            :Assembler::imm(L"0");
+    
+    else if(auto charVal=std::dynamic_pointer_cast<CharValue>(value)){
+        auto val=charVal->toString();
+        if(val==L"\n")
+            imm=Assembler::imm(L"0x0a");
+        else
+            imm=Assembler::imm(L"\'"+val+L"\'");
+    }
+    
+    else if(auto intVal=std::dynamic_pointer_cast<IntValue>(value)){
+        imm=Assembler::imm(intVal->toString());
+    }
+    
+    else if(auto uintVal=std::dynamic_pointer_cast<UIntValue>(value)){
+        imm=Assembler::imm(uintVal->toString());
+    }
+
+    else if(auto longVal=std::dynamic_pointer_cast<LongValue>(value)){
+        imm=Assembler::imm(longVal->toString());
+    }
+    
+    else if(auto ulongVal=std::dynamic_pointer_cast<ULongValue>(value)){
+        imm=Assembler::imm(ulongVal->toString());
+    }
+
+    else if(auto floatVal=std::dynamic_pointer_cast<FloatValue>(value)){
+        union float_bytes {
+            float fVal;
+            int iVal;
+        } data;
+        data.fVal=floatVal->getValue();
+        imm=Assembler::imm(std::to_wstring(data.iVal));
+    }
+
+    else if(auto doubleVal=std::dynamic_pointer_cast<DoubleValue>(value)){
+        union double_bytes {
+            double dVal;
+            long long lVal;
+        } data;
+        data.dVal=doubleVal->getValue();
+        imm=Assembler::imm(std::to_wstring(data.lVal));
+    }
+
+    // TODO: strings
+
+    *currentAsmLabel+=Assembler::mov(Assembler::RAX(),imm);
 }
 
 void Compiler::visit(UnitExpression* ex){
-    *currentLabelAsm+=L"\txor RAX, RAX\n";
+    *currentAsmLabel+=Assembler::zero(Assembler::RAX());
 }
 
 void Compiler::visit(LogicalExpression* ex){
@@ -283,37 +351,9 @@ void Compiler::visit(ThisFunInvokeExpression* ex){
 std::wstring Compiler::getAssemblyFile(){
     auto asmFile=dataAsm+bssAsm+textAsm+L"\n";
     for(auto labelAsmIt:labelsAsm){
-        asmFile+=labelAsmIt.second.second+L"\n";
+        asmFile+=labelAsmIt.second.getAsmText()+L"\n";
     }
     return asmFile;
-}
-
-void Compiler::reserveSpaceOnStack(int size){
-    if(size==0)
-        return;
-    *currentLabelAsm+=L"\tsub RSP, "+std::to_wstring(size)+L"\n";
-}
-
-void Compiler::removeReservedSpaceFromStack(int size){
-    if(size==0)
-        return;
-    *currentLabelAsm+=L"\tadd RSP, "+std::to_wstring(size)+L"\n";
-}
-
-void Compiler::addExit(int errorCode){
-    *currentLabelAsm+=
-        L"\tmov RAX, 60\t; إنهاء البرنامج\n"
-        L"\tmov RDI, "+std::to_wstring(errorCode)+"\n"
-        L"\tsyscall\n"
-    ;
-}
-
-void Compiler::addExit0(){
-    *currentLabelAsm+=
-        L"\tmov RAX, 60\t; إنهاء البرنامج\n"
-        L"\txor RDI, RDI\n"
-        L"\tsyscall\n"
-    ;
 }
 
 int Compiler::getVariableSize(SharedVariable var){
@@ -328,78 +368,10 @@ int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
     return size;
 }
 
-std::wstring Compiler::getAsmValue(SharedIValue value){
-
-    if(auto boolVal=std::dynamic_pointer_cast<BoolValue>(value))
-        return (boolVal->getValue())?L"1":L"0";
-    
-    if(auto charVal=std::dynamic_pointer_cast<CharValue>(value)){
-        auto val=charVal->toString();
-        if(val==L"\n")
-            return L"0x0a";
-        return L"\'"+val+L"\'";
-    }
-    
-    if(auto intVal=std::dynamic_pointer_cast<IntValue>(value)){
-        return intVal->toString();
-    }
-    
-    if(auto uintVal=std::dynamic_pointer_cast<UIntValue>(value)){
-        return uintVal->toString();
-    }
-
-    if(auto longVal=std::dynamic_pointer_cast<LongValue>(value)){
-        return longVal->toString();
-    }
-    
-    if(auto ulongVal=std::dynamic_pointer_cast<ULongValue>(value)){
-        return ulongVal->toString();
-    }
-
-    if(auto floatVal=std::dynamic_pointer_cast<FloatValue>(value)){
-        union float_bytes {
-            float fVal;
-            int iVal;
-        } data;
-        data.fVal=floatVal->getValue();
-        return std::to_wstring(data.iVal);
-    }
-
-    if(auto doubleVal=std::dynamic_pointer_cast<DoubleValue>(value)){
-        union double_bytes {
-            double dVal;
-            long long lVal;
-        } data;
-        data.dVal=doubleVal->getValue();
-        return std::to_wstring(data.lVal);
-    }
-
-    return L""; // TODO: strings
-
-}
-
-std::wstring Compiler::getAsmSize(int size){
-    switch (size) {
-        case 1: return L"BYTE";
-        case 2: return L"WORD";
-        case 4: return L"DWORD";
-        default: return L"QWORD";
-    }
-}
-
-std::wstring Compiler::getRaxBySize(int size){
-    switch (size) {
-        case 1: return L"AL";
-        case 2: return L"AX";
-        case 4: return L"EAX";
-        default: return L"RAX";
-    }
-}
-
 std::wstring Compiler::getAsmLabelName(StmListScope* scope){
-    return labelsAsm[scope].first;
+    return labelsAsm[scope].label;
 }
 
-std::wstring* Compiler::getAsmLabelInstructions(StmListScope* scope){
-    return &labelsAsm[scope].second;
+Assembler::AsmLabel* Compiler::getAsmLabelInstructions(StmListScope* scope){
+    return &labelsAsm[scope];
 }

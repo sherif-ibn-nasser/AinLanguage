@@ -1,5 +1,6 @@
 #include "BuiltInFunScope.hpp"
 #include "ArrayIndexOutOfRangeException.hpp"
+#include "Assembler.hpp"
 #include "BoolClassScope.hpp"
 #include "BoolValue.hpp"
 #include "CharClassScope.hpp"
@@ -48,7 +49,7 @@ BuiltInFunScope::BuiltInFunScope(
     std::vector<std::pair<std::wstring, SharedType>>params,
     std::function<void(Interpreter*)> invokeOnInterpreterFun,
     bool isOperator,
-    std::function<std::wstring()> onGenerateAsm
+    std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm
 ):
     FunScope(
         0,
@@ -80,7 +81,7 @@ void BuiltInFunScope::invokeOnInterpreter(Interpreter* interpreter){
     invokeOnInterpreterFun(interpreter);
 }
 
-std::wstring BuiltInFunScope::getGeneratedAsm(){
+std::vector<Assembler::AsmInstruction> BuiltInFunScope::getGeneratedAsm(){
     return onGenerateAsm();
 }
 
@@ -94,11 +95,11 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -111,12 +112,12 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -130,13 +131,13 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RSI\n"
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -151,14 +152,14 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RDX\n"
-                L"\tpop RSI\n"
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -174,15 +175,15 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop R10\n"
-                L"\tpop RDX\n"
-                L"\tpop RSI\n"
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::R10()),
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -199,16 +200,16 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop R8\n"
-                L"\tpop R10\n"
-                L"\tpop RDX\n"
-                L"\tpop RSI\n"
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::R8()),
+                Assembler::pop(Assembler::R10()),
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -226,17 +227,17 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop R9\n"
-                L"\tpop R8\n"
-                L"\tpop R10\n"
-                L"\tpop RDX\n"
-                L"\tpop RSI\n"
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tsyscall\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::R9()),
+                Assembler::pop(Assembler::R8()),
+                Assembler::pop(Assembler::R10()),
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
         }
     );
 
@@ -248,15 +249,15 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RDI\n"
-                L"\tmov RSI, [brk_end]\n"
-                L"\tlea RDI, [RDI+RSI]\n"
-                L"\tmov RAX, 12\n"
-                L"\tsyscall\n"
-                L"\tmov [brk_end], RAX\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::mov(Assembler::RSI(), Assembler::addressMov(Assembler::brk_end())),
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+"+Assembler::RSI().value)),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"12")),
+                Assembler::syscall(),
+                Assembler::mov(Assembler::addressMov(Assembler::brk_end()), Assembler::RAX())
+            };
         }
     );
 
@@ -269,14 +270,14 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tmov EDI, [RSP]\n"
-                L"\tadd RSP, 4\n"
-                L"\tpop RAX\n"
-                L"\tmov [RAX], EDI\n"
-                L"\txor RAX, RAX\n" // It returns 0 after a successful write
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::mov(Assembler::RDI(Assembler::AsmInstruction::DWORD), Assembler::addressMov(Assembler::RSP())),
+                Assembler::add(Assembler::RSP(), Assembler::imm(L"4")),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI(Assembler::AsmInstruction::DWORD)),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
         }
     );
 
@@ -289,13 +290,13 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RDI\n"
-                L"\tpop RAX\n"
-                L"\tmov [RAX], RDI\n"
-                L"\txor RAX, RAX\n" // It returns 0 after a successful write
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI()),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
         }
     );
 
@@ -307,11 +308,11 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        [](){
-            return
-                L"\tpop RAX\n"
-                L"\tmov RAX, [RAX]\n"
-            ;
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(), Assembler::addressMov(Assembler::RAX()))
+            };
         }
     );
 
