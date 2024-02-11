@@ -26,6 +26,14 @@ namespace Assembler {
                 text=L"sub";break;
             case XOR:
                 text=L"xor";break;
+            case OR:
+                text=L"or";break;
+            case AND:
+                text=L"and";break;
+            case SHR:
+                text=L"shr";break;
+            case SHL:
+                text=L"shl";break;
             case CALL:
                 text=L"call";break;
             case RET:
@@ -46,6 +54,18 @@ namespace Assembler {
                 text=L"inc";break;
             case DEC:
                 text=L"dec";break;
+            case NEG:
+                text=L"neg";break;
+            case NOT:
+                text=L"not";break;
+            case MUL:
+                text=L"mul";break;
+            case IMUL:
+                text=L"imul";break;
+            case DIV:
+                text=L"div";break;
+            case IDIV:
+                text=L"idiv";break;
         }
 
         switch (size) {
@@ -172,6 +192,38 @@ namespace Assembler {
         };
     }
 
+    AsmInstruction _or(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::OR,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction _and(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::AND,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction shr(AsmOperand d, AsmOperand k, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SHR,
+            .operands={d, k},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction shl(AsmOperand d, AsmOperand k, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SHL,
+            .operands={d, k},
+            .comment=comment
+        };
+    }
+
     AsmInstruction zero(AsmOperand d, std::wstring comment){
         return _xor(d, d, comment);
     }
@@ -238,20 +290,74 @@ namespace Assembler {
         };
     }
 
-    AsmInstruction inc(AsmOperand label, AsmInstruction::InstructionSize size, std::wstring comment){
+    AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::INC,
             .size=size,
-            .operands={label},
+            .operands={d},
             .comment=comment
         };
     }
 
-    AsmInstruction dec(AsmOperand label, AsmInstruction::InstructionSize size, std::wstring comment){
+    AsmInstruction dec(AsmOperand d, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::DEC,
             .size=size,
-            .operands={label},
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction neg(AsmOperand d, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::NEG,
+            .size=size,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction _not(AsmOperand d, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::NOT,
+            .size=size,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction mul(AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MUL,
+            .size=size,
+            .operands={s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction imul(AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::IMUL,
+            .size=size,
+            .operands={s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction div(AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::DIV,
+            .size=size,
+            .operands={s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction idiv(AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::IDIV,
+            .size=size,
+            .operands={s},
             .comment=comment
         };
     }

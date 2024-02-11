@@ -602,9 +602,9 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
 
     auto inside=ex->getInside();
     inside->accept(this);
-    auto size=Type::getSize(
-        ex->getReturnType().get()
-    );
+
+    auto returnType=ex->getReturnType().get();
+    auto size=Type::getSize(returnType);
     auto sizeAsm=Assembler::size(size);
 
     auto isPreInc=op==OperatorFunInvokeExpression::Operator::PRE_INC;
@@ -615,7 +615,7 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     if(isPreInc||isPostInc||isPreDec||isPostDec){
 
         auto instructions=&currentAsmLabel->instructions;
-        auto lastInstruction=(*instructions)[instructions->size()-1];
+        auto lastInstruction=instructions->back();
 
         auto comment=lastInstruction.comment;
         std::wstring oldComment=L"الوصول ل";
@@ -645,33 +645,121 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
         return;
     }
 
-    switch (op) {
-
-    case OperatorFunInvokeExpression::Operator::PLUS:
-    case OperatorFunInvokeExpression::Operator::MINUS:
-    case OperatorFunInvokeExpression::Operator::TIMES:
-    case OperatorFunInvokeExpression::Operator::DIV:
-    case OperatorFunInvokeExpression::Operator::MOD:
-    case OperatorFunInvokeExpression::Operator::POW:
-    case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
-    case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
-    case OperatorFunInvokeExpression::Operator::LESS:
-    case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
-    case OperatorFunInvokeExpression::Operator::GREATER:
-    case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
-    case OperatorFunInvokeExpression::Operator::SHR:
-    case OperatorFunInvokeExpression::Operator::SHL:
-    case OperatorFunInvokeExpression::Operator::BIT_AND:
-    case OperatorFunInvokeExpression::Operator::XOR:
-    case OperatorFunInvokeExpression::Operator::BIT_OR:
-    case OperatorFunInvokeExpression::Operator::UNARY_PLUS:
-    case OperatorFunInvokeExpression::Operator::UNARY_MINUS:
-    case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:
-    case OperatorFunInvokeExpression::Operator::BIT_NOT:
-    case OperatorFunInvokeExpression::Operator::GET:
-    case OperatorFunInvokeExpression::Operator::SET_EQUAL:
-      break;
-    default:{}
+    for(auto arg:*ex->getArgs()){
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push (inside expression) to the stack
+        arg->accept(this);
     }
+    
+    // TODO: optimize for imms
+
+    switch(op){
+        // args size is 0
+        case OperatorFunInvokeExpression::Operator::UNARY_MINUS:{
+            auto instructions=&currentAsmLabel->instructions;
+            auto lastInstruction=&instructions->back();
+
+            // Optimize If It's a negative imm
+            if(lastInstruction->type!=Assembler::AsmInstruction::MOV){
+                *currentAsmLabel+=Assembler::neg(Assembler::RAX());
+                break;
+            }
+            auto lastSource=&lastInstruction->operands[1];
+            if(lastSource->type==Assembler::AsmOperand::IMM)
+                lastSource->value=L"-"+lastSource->value;
+            break;
+
+        }
+        case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:
+        case OperatorFunInvokeExpression::Operator::BIT_NOT:
+            *currentAsmLabel+=Assembler::_not(Assembler::RAX());
+            break;
+
+        // args size is 1
+        case OperatorFunInvokeExpression::Operator::PLUS:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
+            *currentAsmLabel+=Assembler::lea(
+                Assembler::RAX(),
+                Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
+            );
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::MINUS:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
+            *currentAsmLabel+=Assembler::neg(Assembler::RAX());
+            *currentAsmLabel+=Assembler::lea(
+                Assembler::RAX(),
+                Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
+            );
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::TIMES:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
+            if (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                *currentAsmLabel+=Assembler::mul(Assembler::RCX());
+            else
+                *currentAsmLabel+=Assembler::imul(Assembler::RCX());
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::DIV:
+        case OperatorFunInvokeExpression::Operator::MOD:{
+            *currentAsmLabel+=Assembler::zero(Assembler::RDX());
+            *currentAsmLabel+=Assembler::mov(Assembler::RCX(), Assembler::RAX());
+            *currentAsmLabel+=Assembler::pop(Assembler::RAX());
+            
+            if (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                *currentAsmLabel+=Assembler::div(Assembler::RCX());
+            else
+                *currentAsmLabel+=Assembler::idiv(Assembler::RCX());
+
+            if(op==OperatorFunInvokeExpression::Operator::DIV)
+                *currentAsmLabel+=Assembler::mov(
+                    Assembler::RAX(),
+                    Assembler::RDX(),
+                    Assembler::AsmInstruction::IMPLICIT,
+                    L"باقي القسمة"
+                );
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::XOR:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
+            *currentAsmLabel+=Assembler::_xor(Assembler::RAX(), Assembler::RCX());
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::BIT_OR:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
+            *currentAsmLabel+=Assembler::_or(Assembler::RAX(), Assembler::RCX());
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::BIT_AND:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
+            *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::RCX());
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::SHR:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
+            *currentAsmLabel+=Assembler::shr(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE));
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::SHL:{
+            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
+            *currentAsmLabel+=Assembler::shl(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE));
+            break;
+        }
+        case OperatorFunInvokeExpression::Operator::POW:
+        case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
+        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+        case OperatorFunInvokeExpression::Operator::LESS:
+        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+        case OperatorFunInvokeExpression::Operator::GREATER:
+        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
+        case OperatorFunInvokeExpression::Operator::GET:
+            break;
+
+        // args size is 2
+        case OperatorFunInvokeExpression::Operator::SET_EQUAL:
+        default:{}
+    }
+    
+
 
 }

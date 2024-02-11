@@ -31,6 +31,10 @@ namespace Assembler {
             ADD,
             SUB,
             XOR,
+            OR,
+            AND,
+            SHR,
+            SHL,
             CALL,
             RET,
             SYSCALL,
@@ -41,6 +45,12 @@ namespace Assembler {
             JNZ,
             INC,
             DEC,
+            NEG,
+            NOT,
+            MUL,
+            IMUL,
+            DIV,
+            IDIV,
         };
 
         enum InstructionSize{
@@ -77,6 +87,10 @@ namespace Assembler {
     AsmInstruction add(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction sub(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _xor(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction _or(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction _and(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction shr(AsmOperand d, AsmOperand k, std::wstring comment=L"");
+    AsmInstruction shl(AsmOperand d, AsmOperand k, std::wstring comment=L"");
     AsmInstruction zero(AsmOperand d, std::wstring comment=L"");
     AsmInstruction call(AsmOperand label, std::wstring comment=L"");
     AsmInstruction ret(std::wstring comment=L"");
@@ -86,8 +100,14 @@ namespace Assembler {
     AsmInstruction jmp(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jz(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jnz(AsmOperand label, std::wstring comment=L"");
-    AsmInstruction inc(AsmOperand label, AsmInstruction::AsmInstruction::InstructionSize size, std::wstring comment=L"");
-    AsmInstruction dec(AsmOperand label, AsmInstruction::InstructionSize size, std::wstring comment=L"");
+    AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction dec(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction neg(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction _not(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction mul(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction imul(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction div(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction idiv(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");
