@@ -42,7 +42,24 @@ namespace Assembler {
                 text=L"jz";break;
             case JNZ:
                 text=L"jnz";break;
-            }
+            case INC:
+                text=L"inc";break;
+            case DEC:
+                text=L"dec";break;
+        }
+
+        switch (size) {
+            case IMPLICIT:;break;
+            case BYTE:
+                text+=L" BYTE";break;
+            case WORD:
+                text+=L" WORD";break;
+            case DWORD:
+                text+=L" DWORD";break;
+            case QWORD:
+                text+=L" QWORD";break;
+        }
+
         auto i=0;
         for (auto &operand : this->operands) {
             text+=((i==0)?L" ":L", ")+operand.value;
@@ -116,6 +133,7 @@ namespace Assembler {
     AsmInstruction mov(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::MOV,
+            .size=size,
             .operands={d, s},
             .comment=comment
         };
@@ -124,6 +142,7 @@ namespace Assembler {
     AsmInstruction lea(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::LEA,
+            .size=size,
             .operands={d, s},
             .comment=comment
         };
@@ -214,6 +233,24 @@ namespace Assembler {
     AsmInstruction jnz(AsmOperand label, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::JNZ,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction inc(AsmOperand label, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::INC,
+            .size=size,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction dec(AsmOperand label, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::DEC,
+            .size=size,
             .operands={label},
             .comment=comment
         };
@@ -434,6 +471,56 @@ namespace Assembler {
 
     AsmOperand brk_end(){
         return AsmOperand{.type=AsmOperand::REG, .value=L"brk_end"}; // simulate that it as a register
+    }
+
+    AsmInstruction::InstructionSize size(int size){
+        switch (size) {
+            case 0:
+                return AsmInstruction::IMPLICIT;
+            case 1:
+                return AsmInstruction::BYTE;
+            case 2:
+                return AsmInstruction::WORD;
+            case 4:
+                return AsmInstruction::DWORD;
+            default:
+                return AsmInstruction::QWORD;
+        }
+    }
+
+    AsmInstruction::InstructionSize getSizeOfReg(AsmOperand reg){
+
+        auto sizes={AsmInstruction::BYTE, AsmInstruction::WORD, AsmInstruction::DWORD, AsmInstruction::QWORD};
+
+        auto regValue=reg.value;
+
+        for (auto size : sizes)
+            if(
+                regValue==RAX(AsmInstruction::BYTE).value
+                ||
+                regValue==RBX(AsmInstruction::BYTE).value
+                ||
+                regValue==RCX(AsmInstruction::BYTE).value
+                ||
+                regValue==RDX(AsmInstruction::BYTE).value
+                ||
+                regValue==RDI(AsmInstruction::BYTE).value
+                ||
+                regValue==RSI(AsmInstruction::BYTE).value
+                ||
+                regValue==RSP(AsmInstruction::BYTE).value
+                ||
+                regValue==RBP(AsmInstruction::BYTE).value
+                ||
+                regValue==R8(AsmInstruction::BYTE).value
+                ||
+                regValue==R8(AsmInstruction::BYTE).value
+                ||
+                regValue==R10(AsmInstruction::BYTE).value
+            )
+                return size;
+        
+        return AsmInstruction::IMPLICIT;
     }
 
 }

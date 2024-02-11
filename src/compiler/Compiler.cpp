@@ -14,6 +14,7 @@
 #include "IntValue.hpp"
 #include "KeywordToken.hpp"
 #include "LongValue.hpp"
+#include "OperatorFunInvokeExpression.hpp"
 #include "SharedPtrTypes.hpp"
 #include "StmListScope.hpp"
 #include "Type.hpp"
@@ -466,7 +467,10 @@ void Compiler::visit(NonStaticFunInvokeExpression* ex){
 }
 
 void Compiler::visit(OperatorFunInvokeExpression* ex){
-    // TODO    
+    if(auto builtIn=std::dynamic_pointer_cast<BuiltInFunScope>(ex->getFun())){
+        invokeBuiltInOpFun(ex);
+        return;
+    }
 }
 
 void Compiler::visit(SetOperatorExpression* ex){
@@ -591,4 +595,83 @@ int Compiler::getLocalsSize(StmListScope* scope){
         }
     }
     return size;
+}
+
+void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
+    auto op=ex->getOp();
+
+    auto inside=ex->getInside();
+    inside->accept(this);
+    auto size=Type::getSize(
+        ex->getReturnType().get()
+    );
+    auto sizeAsm=Assembler::size(size);
+
+    auto isPreInc=op==OperatorFunInvokeExpression::Operator::PRE_INC;
+    auto isPreDec=op==OperatorFunInvokeExpression::Operator::PRE_DEC;
+    auto isPostInc=op==OperatorFunInvokeExpression::Operator::POST_INC;
+    auto isPostDec=op==OperatorFunInvokeExpression::Operator::POST_DEC;
+
+    if(isPreInc||isPostInc||isPreDec||isPostDec){
+
+        auto instructions=&currentAsmLabel->instructions;
+        auto lastInstruction=(*instructions)[instructions->size()-1];
+
+        auto comment=lastInstruction.comment;
+        std::wstring oldComment=L"الوصول ل";
+        auto newComment=(isPreInc||isPostInc)?L"زيادة ":L"نقصان ";
+        comment.replace(0, oldComment.size(), newComment);
+
+        if (isPreInc||isPreDec)
+            instructions->pop_back();
+        
+        if (isPreInc||isPostInc)
+            *currentAsmLabel+=Assembler::inc(
+                lastInstruction.operands[1],
+                sizeAsm,
+                comment
+            );
+        else
+            *currentAsmLabel+=Assembler::dec(
+                lastInstruction.operands[1],
+                sizeAsm,
+                comment
+            );
+
+        
+        if (isPreInc||isPreDec)
+            *currentAsmLabel+=lastInstruction;
+
+        return;
+    }
+
+    switch (op) {
+
+    case OperatorFunInvokeExpression::Operator::PLUS:
+    case OperatorFunInvokeExpression::Operator::MINUS:
+    case OperatorFunInvokeExpression::Operator::TIMES:
+    case OperatorFunInvokeExpression::Operator::DIV:
+    case OperatorFunInvokeExpression::Operator::MOD:
+    case OperatorFunInvokeExpression::Operator::POW:
+    case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
+    case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+    case OperatorFunInvokeExpression::Operator::LESS:
+    case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+    case OperatorFunInvokeExpression::Operator::GREATER:
+    case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
+    case OperatorFunInvokeExpression::Operator::SHR:
+    case OperatorFunInvokeExpression::Operator::SHL:
+    case OperatorFunInvokeExpression::Operator::BIT_AND:
+    case OperatorFunInvokeExpression::Operator::XOR:
+    case OperatorFunInvokeExpression::Operator::BIT_OR:
+    case OperatorFunInvokeExpression::Operator::UNARY_PLUS:
+    case OperatorFunInvokeExpression::Operator::UNARY_MINUS:
+    case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:
+    case OperatorFunInvokeExpression::Operator::BIT_NOT:
+    case OperatorFunInvokeExpression::Operator::GET:
+    case OperatorFunInvokeExpression::Operator::SET_EQUAL:
+      break;
+    default:{}
+    }
+
 }

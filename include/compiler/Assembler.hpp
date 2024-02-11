@@ -39,6 +39,8 @@ namespace Assembler {
             JMP,
             JZ,
             JNZ,
+            INC,
+            DEC,
         };
 
         enum InstructionSize{
@@ -84,6 +86,8 @@ namespace Assembler {
     AsmInstruction jmp(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jz(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jnz(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction inc(AsmOperand label, AsmInstruction::AsmInstruction::InstructionSize size, std::wstring comment=L"");
+    AsmInstruction dec(AsmOperand label, AsmInstruction::InstructionSize size, std::wstring comment=L"");
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");
@@ -106,5 +110,8 @@ namespace Assembler {
     AsmOperand R9(int size=AsmInstruction::QWORD);
     AsmOperand R10(int size=AsmInstruction::QWORD);
     AsmOperand brk_end();
+
+    AsmInstruction::InstructionSize size(int size);
+    AsmInstruction::InstructionSize getSizeOfReg(AsmOperand reg);
 
 }

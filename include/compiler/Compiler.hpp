@@ -69,6 +69,8 @@ class Compiler:public ASTVisitor{
         void visitLoopStm(WhileStatement *stm, bool isDoWhileStm=false); // DoWhileStatement is a child of WhileStatement
         // Will return the size of params+non_params+locals in nested scopes if scope is a function scope
         int getLocalsSize(StmListScope *scope);
+
+        void invokeBuiltInOpFun(OperatorFunInvokeExpression* ex);
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;
