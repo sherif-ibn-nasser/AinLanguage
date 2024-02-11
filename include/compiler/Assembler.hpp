@@ -105,7 +105,6 @@ namespace Assembler {
     AsmOperand R8(int size=AsmInstruction::QWORD);
     AsmOperand R9(int size=AsmInstruction::QWORD);
     AsmOperand R10(int size=AsmInstruction::QWORD);
-    AsmOperand R12(int size=AsmInstruction::QWORD);
     AsmOperand brk_end();
 
 }

@@ -432,21 +432,6 @@ namespace Assembler {
         return AsmOperand{.type=AsmOperand::REG, .value=value};
     }
 
-    AsmOperand R12(int size){
-        auto value=L"";
-        switch (size) {
-            case AsmInstruction::BYTE:
-                value=L"R12B"; break;
-            case AsmInstruction::WORD:
-                value=L"R12W"; break;
-            case AsmInstruction::DWORD:
-                value=L"R12D"; break;
-            default:
-                value=L"R12"; break;
-        }
-        return AsmOperand{.type=AsmOperand::REG, .value=value};
-    }
-
     AsmOperand brk_end(){
         return AsmOperand{.type=AsmOperand::REG, .value=L"brk_end"}; // simulate that it as a register
     }
