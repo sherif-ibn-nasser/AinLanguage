@@ -43,6 +43,16 @@ namespace Assembler {
             JMP,
             JZ,
             JNZ,
+            JS,
+            JNS,
+            JG,
+            JGE,
+            JL,
+            JLE,
+            JA,
+            JAE,
+            JB,
+            JBE,
             INC,
             DEC,
             NEG,
@@ -51,6 +61,18 @@ namespace Assembler {
             IMUL,
             DIV,
             IDIV,
+            SETZ,
+            SETNZ,
+            SETS,
+            SETNS,
+            SETG,
+            SETGE,
+            SETL,
+            SETLE,
+            SETA,
+            SETAE,
+            SETB,
+            SETBE,
         };
 
         enum InstructionSize{
@@ -108,6 +130,18 @@ namespace Assembler {
     AsmInstruction imul(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction div(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction idiv(AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction setz(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setnz(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction sets(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setns(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setg(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setge(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setl(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setle(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction seta(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setae(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setb(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction setbe(AsmOperand s, std::wstring comment=L"");
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");

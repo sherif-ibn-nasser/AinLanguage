@@ -50,6 +50,26 @@ namespace Assembler {
                 text=L"jz";break;
             case JNZ:
                 text=L"jnz";break;
+            case JS:
+                text=L"js";break;
+            case JNS:
+                text=L"jns";break;
+            case JG:
+                text=L"jg";break;
+            case JGE:
+                text=L"jge";break;
+            case JL:
+                text=L"jl";break;
+            case JLE:
+                text=L"jle";break;
+            case JA:
+                text=L"ja";break;
+            case JAE:
+                text=L"jae";break;
+            case JB:
+                text=L"jb";break;
+            case JBE:
+                text=L"jbe";break;
             case INC:
                 text=L"inc";break;
             case DEC:
@@ -66,6 +86,30 @@ namespace Assembler {
                 text=L"div";break;
             case IDIV:
                 text=L"idiv";break;
+            case SETZ:
+                text=L"setz";break;
+            case SETNZ:
+                text=L"setnz";break;
+            case SETS:
+                text=L"sets";break;
+            case SETNS:
+                text=L"setns";break;
+            case SETG:
+                text=L"setg";break;
+            case SETGE:
+                text=L"setge";break;
+            case SETL:
+                text=L"setl";break;
+            case SETLE:
+                text=L"setle";break;
+            case SETA:
+                text=L"seta";break;
+            case SETAE:
+                text=L"setae";break;
+            case SETB:
+                text=L"setb";break;
+            case SETBE:
+                text=L"setbe";break;
         }
 
         switch (size) {
@@ -361,6 +405,115 @@ namespace Assembler {
             .comment=comment
         };
     }
+
+    AsmInstruction setz(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETZ,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setnz(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETNZ,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction sets(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setns(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETNS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setg(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETG,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setge(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETGE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setl(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETL,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setle(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETLE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction seta(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETA,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setae(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETAE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setb(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETB,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction setbe(AsmOperand d, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SETBE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d},
+            .comment=comment
+        };
+    }
+
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment){
         if(size==0)

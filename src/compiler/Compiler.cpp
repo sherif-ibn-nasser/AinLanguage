@@ -201,7 +201,7 @@ void Compiler::visit(IfStatement* stm){
 
     auto conditionalJumpLabelStr=(elseScope)?elseLabelStr:endLabelStr;
     
-    addNegatedConditionalJumpInstruction(
+    optimizeNegatedConditionalJumpInstruction(
         stm->getIfCondition().get(),
         Assembler::label(L"."+conditionalJumpLabelStr)
     );
@@ -414,7 +414,7 @@ void Compiler::visit(LogicalExpression* ex){
 
     switch (ex->getLogicalOp()) {
         case LogicalExpression::Operation::OR:{
-            addConditionalJumpInstruction(
+            optimizeConditionalJumpInstruction(
                 ex->getLeft().get(),
                 shortcutLabel,
                 L"أو الشرطية"
@@ -422,7 +422,7 @@ void Compiler::visit(LogicalExpression* ex){
             break;
         }
         case LogicalExpression::Operation::AND:{
-            addNegatedConditionalJumpInstruction(
+            optimizeNegatedConditionalJumpInstruction(
                 ex->getLeft().get(),
                 shortcutLabel,
                 L"و الشرطية"
@@ -534,24 +534,99 @@ int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
     return size;
 }
 
-void Compiler::addConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
-    // TODO: handle the type of the jump instruction
-
-    condition->accept(this);
+void Compiler::optimizeConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
     
-    *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
-    *currentAsmLabel+=Assembler::jnz(label,comment);
+    condition->accept(this);
+  
+    auto jumpType=Assembler::AsmInstruction::JZ;
+
+    auto lastInstruction=&currentAsmLabel->instructions.back();
+
+    switch (lastInstruction->type) {
+        case Assembler::AsmInstruction::SETZ:
+            jumpType=Assembler::AsmInstruction::JZ;break;
+        case Assembler::AsmInstruction::SETNZ:
+            jumpType=Assembler::AsmInstruction::JNZ;break;
+        case Assembler::AsmInstruction::SETS:
+            jumpType=Assembler::AsmInstruction::JS;break;
+        case Assembler::AsmInstruction::SETNS:
+            jumpType=Assembler::AsmInstruction::JNS;break;
+        case Assembler::AsmInstruction::SETG:
+            jumpType=Assembler::AsmInstruction::JG;break;
+        case Assembler::AsmInstruction::SETGE:
+            jumpType=Assembler::AsmInstruction::JGE;break;
+        case Assembler::AsmInstruction::SETL:
+            jumpType=Assembler::AsmInstruction::JL;break;
+        case Assembler::AsmInstruction::SETLE:
+            jumpType=Assembler::AsmInstruction::JLE;break;
+        case Assembler::AsmInstruction::SETA:
+            jumpType=Assembler::AsmInstruction::JA;break;
+        case Assembler::AsmInstruction::SETAE:
+            jumpType=Assembler::AsmInstruction::JAE;break;
+        case Assembler::AsmInstruction::SETB:
+            jumpType=Assembler::AsmInstruction::JB;break;
+        case Assembler::AsmInstruction::SETBE:
+            jumpType=Assembler::AsmInstruction::JBE;break;
+        default:{
+            *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+            *currentAsmLabel+=Assembler::jnz(label,comment);
+            return;
+        }
+    }
+
+    *lastInstruction=Assembler::AsmInstruction{
+        .type=jumpType,
+        .operands={label},
+        .comment=comment
+    };
 
 }
 
-void Compiler::addNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
-    // TODO: handle the type of the jump instruction
+void Compiler::optimizeNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
     
     condition->accept(this);
+    
+    auto jumpType=Assembler::AsmInstruction::JZ;
 
-    *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
-    *currentAsmLabel+=Assembler::jz(label,comment);
+    auto lastInstruction=&currentAsmLabel->instructions.back();
 
+    switch (lastInstruction->type) {
+        case Assembler::AsmInstruction::SETZ:
+            jumpType=Assembler::AsmInstruction::JNZ;break;
+        case Assembler::AsmInstruction::SETNZ:
+            jumpType=Assembler::AsmInstruction::JZ;break;
+        case Assembler::AsmInstruction::SETS:
+            jumpType=Assembler::AsmInstruction::JNS;break;
+        case Assembler::AsmInstruction::SETNS:
+            jumpType=Assembler::AsmInstruction::JS;break;
+        case Assembler::AsmInstruction::SETG:
+            jumpType=Assembler::AsmInstruction::JLE;break;
+        case Assembler::AsmInstruction::SETGE:
+            jumpType=Assembler::AsmInstruction::JL;break;
+        case Assembler::AsmInstruction::SETL:
+            jumpType=Assembler::AsmInstruction::JGE;break;
+        case Assembler::AsmInstruction::SETLE:
+            jumpType=Assembler::AsmInstruction::JG;break;
+        case Assembler::AsmInstruction::SETA:
+            jumpType=Assembler::AsmInstruction::JBE;break;
+        case Assembler::AsmInstruction::SETAE:
+            jumpType=Assembler::AsmInstruction::JB;break;
+        case Assembler::AsmInstruction::SETB:
+            jumpType=Assembler::AsmInstruction::JAE;break;
+        case Assembler::AsmInstruction::SETBE:
+            jumpType=Assembler::AsmInstruction::JA;break;
+        default:{
+            *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+            *currentAsmLabel+=Assembler::jz(label,comment);
+            return;
+        }
+    }
+
+    *lastInstruction=Assembler::AsmInstruction{
+        .type=jumpType,
+        .operands={label},
+        .comment=comment
+    };
 }
 
 void Compiler::visitLoopStm(WhileStatement *stm, bool isDoWhileStm){
@@ -574,7 +649,7 @@ void Compiler::visitLoopStm(WhileStatement *stm, bool isDoWhileStm){
 
     *currentAsmLabel+=continueLabel;
 
-    addConditionalJumpInstruction(
+    optimizeConditionalJumpInstruction(
         stm->getCondition().get(),
         Assembler::label(L"."+loopLabelStr)
     );
@@ -661,18 +736,18 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
             // Optimize If It's a negative imm
             if(lastInstruction->type!=Assembler::AsmInstruction::MOV){
                 *currentAsmLabel+=Assembler::neg(Assembler::RAX());
-                break;
+                return;
             }
             auto lastSource=&lastInstruction->operands[1];
             if(lastSource->type==Assembler::AsmOperand::IMM)
                 lastSource->value=L"-"+lastSource->value;
-            break;
+            return;
 
         }
         case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:
         case OperatorFunInvokeExpression::Operator::BIT_NOT:
             *currentAsmLabel+=Assembler::_not(Assembler::RAX());
-            break;
+            return;
 
         // args size is 1
         case OperatorFunInvokeExpression::Operator::PLUS:{
@@ -681,7 +756,7 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
                 Assembler::RAX(),
                 Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
             );
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::MINUS:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
@@ -690,7 +765,7 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
                 Assembler::RAX(),
                 Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
             );
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::TIMES:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
@@ -698,7 +773,7 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
                 *currentAsmLabel+=Assembler::mul(Assembler::RCX());
             else
                 *currentAsmLabel+=Assembler::imul(Assembler::RCX());
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::DIV:
         case OperatorFunInvokeExpression::Operator::MOD:{
@@ -718,48 +793,84 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
                     Assembler::AsmInstruction::IMPLICIT,
                     L"باقي القسمة"
                 );
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::XOR:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
             *currentAsmLabel+=Assembler::_xor(Assembler::RAX(), Assembler::RCX());
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::BIT_OR:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
             *currentAsmLabel+=Assembler::_or(Assembler::RAX(), Assembler::RCX());
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::BIT_AND:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
             *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::RCX());
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::SHR:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
             *currentAsmLabel+=Assembler::shr(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE));
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::SHL:{
             *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
             *currentAsmLabel+=Assembler::shl(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE));
-            break;
+            return;
         }
         case OperatorFunInvokeExpression::Operator::POW:
-        case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
-        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
-        case OperatorFunInvokeExpression::Operator::LESS:
-        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
-        case OperatorFunInvokeExpression::Operator::GREATER:
-        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
         case OperatorFunInvokeExpression::Operator::GET:
-            break;
+            return;
 
         // args size is 2
         case OperatorFunInvokeExpression::Operator::SET_EQUAL:
         default:{}
     }
-    
 
+    *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
+    *currentAsmLabel+=Assembler::cmp(Assembler::RCX(), Assembler::RAX());
+    auto AX=Assembler::RAX(Assembler::AsmInstruction::BYTE);
+
+    auto isUnsigned=
+        *inside->getReturnType()==*Type::UINT
+        ||
+        *inside->getReturnType()==*Type::ULONG
+    ;
+
+    switch (op) {
+        case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
+            *currentAsmLabel+=Assembler::setz(AX);
+            break;
+        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+            *currentAsmLabel+=Assembler::setnz(AX);
+            break;
+        case OperatorFunInvokeExpression::Operator::LESS:
+            if(isUnsigned)
+                *currentAsmLabel+=Assembler::setb(AX);
+            else
+                *currentAsmLabel+=Assembler::setl(AX);
+            break;
+        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+            if(isUnsigned)
+                *currentAsmLabel+=Assembler::setbe(AX);
+            else
+                *currentAsmLabel+=Assembler::setle(AX);
+            break;
+        case OperatorFunInvokeExpression::Operator::GREATER:
+            if(isUnsigned)
+                *currentAsmLabel+=Assembler::seta(AX);
+            else
+                *currentAsmLabel+=Assembler::setg(AX);
+            break;
+        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
+            if(isUnsigned)
+                *currentAsmLabel+=Assembler::setae(AX);
+            else
+                *currentAsmLabel+=Assembler::setge(AX);
+            break;
+        default:{}
+    }
 
 }
