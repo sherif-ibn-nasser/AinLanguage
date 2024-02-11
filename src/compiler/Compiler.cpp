@@ -198,12 +198,12 @@ void Compiler::visit(IfStatement* stm){
 
     *currentAsmLabel+=ifLabel;
 
-    auto condition=stm->getIfCondition().get();
-    condition->accept(this);
-
     auto conditionalJumpLabelStr=(elseScope)?elseLabelStr:endLabelStr;
     
-    addNegatedConditionalJumpInstruction(condition, Assembler::label(L"."+conditionalJumpLabelStr));
+    addNegatedConditionalJumpInstruction(
+        stm->getIfCondition().get(),
+        Assembler::label(L"."+conditionalJumpLabelStr)
+    );
 
     stm->getIfScope()->accept(this);
 
@@ -406,7 +406,34 @@ void Compiler::visit(UnitExpression* ex){
 }
 
 void Compiler::visit(LogicalExpression* ex){
-    // TODO    
+
+    auto shortcutLabelStr=L"logical_shortcut"+std::to_wstring(++currentLogicalShortcutsLabelsSize);
+    auto shortcutLocalLabel=Assembler::localLabel(shortcutLabelStr);
+    auto shortcutLabel=Assembler::label(L"."+shortcutLabelStr);
+
+    switch (ex->getLogicalOp()) {
+        case LogicalExpression::Operation::OR:{
+            addConditionalJumpInstruction(
+                ex->getLeft().get(),
+                shortcutLabel,
+                L"أو الشرطية"
+            );
+            break;
+        }
+        case LogicalExpression::Operation::AND:{
+            addNegatedConditionalJumpInstruction(
+                ex->getLeft().get(),
+                shortcutLabel,
+                L"و الشرطية"
+            );
+            break;
+        }
+    }
+
+    ex->getRight()->accept(this);
+    
+    *currentAsmLabel+=shortcutLocalLabel;
+
 }
 
 void Compiler::visit(NonStaticVarAccessExpression* ex){
@@ -505,6 +532,8 @@ int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
 
 void Compiler::addConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
     // TODO: handle the type of the jump instruction
+
+    condition->accept(this);
     
     *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
     *currentAsmLabel+=Assembler::jnz(label,comment);
@@ -514,6 +543,8 @@ void Compiler::addConditionalJumpInstruction(IExpression* condition, Assembler::
 void Compiler::addNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
     // TODO: handle the type of the jump instruction
     
+    condition->accept(this);
+
     *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
     *currentAsmLabel+=Assembler::jz(label,comment);
 
@@ -539,9 +570,10 @@ void Compiler::visitLoopStm(WhileStatement *stm, bool isDoWhileStm){
 
     *currentAsmLabel+=continueLabel;
 
-    auto condition=stm->getCondition().get();
-    condition->accept(this);
-    addConditionalJumpInstruction(condition, Assembler::label(L"."+loopLabelStr));
+    addConditionalJumpInstruction(
+        stm->getCondition().get(),
+        Assembler::label(L"."+loopLabelStr)
+    );
 
     *currentAsmLabel+=breakLabel;
 }
