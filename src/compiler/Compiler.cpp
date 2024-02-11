@@ -127,7 +127,9 @@ void Compiler::visit(LoopScope* scope){
 }
 
 void Compiler::visit(StmListScope* scope){
-    // TODO    
+    for(auto stm:*scope->getStmList()){
+        stm->accept(this);
+    }
 }
 
 void Compiler::visit(VarStm* stm){
@@ -153,7 +155,36 @@ void Compiler::visit(AugmentedAssignStatement* stm){
 }
 
 void Compiler::visit(IfStatement* stm){
-    // TODO    
+
+    auto elseScope=stm->getElseScope().get();
+
+    auto ifNumStr=std::to_wstring(++currentIfLabelsSize);
+    auto ifLabelStr=L"if"+ifNumStr;
+    auto elseLabelStr=L"else"+ifNumStr;
+    auto endLabelStr=L"end"+ifNumStr;
+    
+    auto ifLabel=Assembler::localLabel(ifLabelStr);
+    auto elseLabel=Assembler::localLabel(elseLabelStr);
+    auto endLabel=Assembler::localLabel(endLabelStr);
+
+    *currentAsmLabel+=ifLabel;
+
+    auto condition=stm->getIfCondition().get();
+    condition->accept(this);
+
+    auto conditionalJumpLabelStr=(elseScope)?elseLabelStr:endLabelStr;
+    
+    addNegatedConditionalJumpInstruction(condition, Assembler::label(L"."+conditionalJumpLabelStr));
+
+    stm->getIfScope()->accept(this);
+
+    if(elseScope){
+        *currentAsmLabel+=Assembler::jmp(Assembler::label(L"."+endLabelStr));
+        *currentAsmLabel+=elseLabel;
+        elseScope->accept(this);
+    }
+
+    *currentAsmLabel+=endLabel;
 }
 
 void Compiler::visit(WhileStatement* stm){
@@ -186,6 +217,11 @@ void Compiler::visit(ReturnStatement* stm){
     auto fun=BaseScope::getContainingFun(stm->getRunScope()).get();
 
     stm->getEx()->accept(this);
+
+    if(labelsAsm[fun].label==L"_start"){
+        *currentAsmLabel+=Assembler::exit(0, L"إنهاء البرنامج");
+        return;
+    }
 
     if(fun->getDecl()->isConstructor())
         *currentAsmLabel+=
@@ -392,6 +428,14 @@ int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
     return size;
 }
 
+void Compiler::addConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
+    // TODO: handle the type of the jump instruction
+    
+    *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+    *currentAsmLabel+=Assembler::jnz(label,comment);
+
+}
+
 void Compiler::addNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
     // TODO: handle the type of the jump instruction
     
@@ -408,7 +452,7 @@ void Compiler::visitLoopStm(WhileStatement *stm, bool isDoWhileStm){
     auto breakLabelStr=L"break"+loopNumStr;
     
     auto loopLabel=Assembler::localLabel(loopLabelStr);
-    auto conditionLabel=Assembler::localLabel(continueLabelStr);
+    auto continueLabel=Assembler::localLabel(continueLabelStr);
     auto breakLabel=Assembler::localLabel(breakLabelStr);
 
     if(!isDoWhileStm)
@@ -418,11 +462,11 @@ void Compiler::visitLoopStm(WhileStatement *stm, bool isDoWhileStm){
 
     stm->getLoopScope()->accept(this);
 
-    auto condition=stm->getCondition().get();
-    *currentAsmLabel+=conditionLabel;
-    condition->accept(this);
+    *currentAsmLabel+=continueLabel;
 
-    addNegatedConditionalJumpInstruction(condition, Assembler::label(L"."+loopLabelStr));
+    auto condition=stm->getCondition().get();
+    condition->accept(this);
+    addConditionalJumpInstruction(condition, Assembler::label(L"."+loopLabelStr));
 
     *currentAsmLabel+=breakLabel;
 }

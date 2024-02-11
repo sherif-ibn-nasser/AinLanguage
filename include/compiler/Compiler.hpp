@@ -63,6 +63,7 @@ class Compiler:public ASTVisitor{
         
         int getVariableSize(SharedVariable var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
+        void addConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");
         void addNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");
         void visitLoopStm(WhileStatement *stm, bool isDoWhileStm=false); // DoWhileStatement is a child of WhileStatement
         // Will return the size of params+non_params+locals in nested scopes if scope is a function scope
