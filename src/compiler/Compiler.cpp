@@ -147,7 +147,36 @@ void Compiler::visit(VarStm* stm){
 }
 
 void Compiler::visit(AssignStatement* stm){
-    // TODO    
+    /*
+    * The left returns ts value in rax, also right, so remove last mov instruction for left, and swap the operands, to get more optimized code.
+    * Fact: left is VarAccessExpression, NonStaticVarAccessExpression or ThisVarExpression
+    * So left will generate last instruction in form of `mov RAX, [REG+offset]
+    * And right will be any expression, that will return its value in RAX with the left of side
+    * So just remove the last instruction of left, and add another one at the end, that has the form `mov [REG+offset], RAX
+    * The first operand will be the value at the variable address, i.e, the second operand in the last instruction of left
+    * the size of RAX in last instruction will match the size of the variable, i.e. the first operand in the last instruction of left
+    */
+
+    // constants cannot reach here
+
+    stm->getLeft()->accept(this);
+    auto instructions=&currentAsmLabel->instructions;
+    auto lastInstruction=(*instructions)[instructions->size()-1];
+    instructions->pop_back();
+    
+    stm->getRight()->accept(this);
+
+    auto comment=lastInstruction.comment;
+    std::wstring oldComment=L"الوصول ل";
+    auto newComment=L"تخصيص ";
+    comment.replace(0, oldComment.size(), newComment);
+
+    *currentAsmLabel+=Assembler::mov(
+        lastInstruction.operands[1],
+        lastInstruction.operands[0],
+        Assembler::AsmInstruction::IMPLICIT,
+        comment
+    ); 
 }
 
 void Compiler::visit(AugmentedAssignStatement* stm){
@@ -381,7 +410,28 @@ void Compiler::visit(LogicalExpression* ex){
 }
 
 void Compiler::visit(NonStaticVarAccessExpression* ex){
-    // TODO    
+    auto var=ex->getVar();
+    auto varSize=getVariableSize(var);
+    auto offset=offsets[var.get()];
+    auto comment=
+        ((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")
+        +ex->getInside()->getReturnType()->getClassScope()->getName()
+        +L"::"
+        +*var->getName()
+    ;
+
+    ex->getInside()->accept(this);
+
+    *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX());
+
+    *currentAsmLabel+=
+        Assembler::mov(
+            Assembler::RAX(varSize),
+            Assembler::addressMov(offset.reg, offset.value),
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        )
+    ;
 }
 
 void Compiler::visit(NonStaticFunInvokeExpression* ex){
@@ -397,11 +447,36 @@ void Compiler::visit(SetOperatorExpression* ex){
 }
 
 void Compiler::visit(ThisExpression* ex){
-    // TODO    
+    
+    *currentAsmLabel+=
+        Assembler::mov(
+            Assembler::RAX(),
+            Assembler::RBX(),
+            Assembler::AsmInstruction::IMPLICIT,
+            L"هذا"
+        )
+    ;
 }
 
 void Compiler::visit(ThisVarAccessExpression* ex){
-    // TODO    
+    auto var=ex->getVar();
+    auto varSize=getVariableSize(var);
+    auto offset=offsets[var.get()];
+    auto comment=
+        ((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")
+        +ex->getClassScope()->getName()
+        +L"::"
+        +*var->getName()
+    ;
+
+    *currentAsmLabel+=
+        Assembler::mov(
+            Assembler::RAX(varSize),
+            Assembler::addressMov(offset.reg, offset.value),
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        )
+    ;
 }
 
 void Compiler::visit(ThisFunInvokeExpression* ex){
