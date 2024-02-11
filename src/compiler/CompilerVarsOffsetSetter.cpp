@@ -191,9 +191,13 @@ void CompilerVarsOffsetSetter::visit(IfStatement* stm){
 }
 
 void CompilerVarsOffsetSetter::visit(WhileStatement* stm){
+    stmListScopeOffset-=8; // To save the continue address of the loop in a register
     offsetStmListScope(stm->getLoopScope().get());
+    stmListScopeOffset+=8; // Restore save register
 }
 
 void CompilerVarsOffsetSetter::visit(DoWhileStatement* stm){
+    stmListScopeOffset-=8; // To save the continue address of the loop in a register
     offsetStmListScope(stm->getLoopScope().get());
+    stmListScopeOffset+=8; // Restore save register
 }

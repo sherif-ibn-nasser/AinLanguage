@@ -46,13 +46,15 @@ class Compiler:public ASTVisitor{
         int funLabelsSize=0; // for numbering labels for functions
         int constructorLabelsSize=0; // for numbering labels for constructors
         int methodLabelsSize=0; // for numbering labels for methods in all classes
+        int currentLoopLabelsSize=0; // for numbering labels for loops in a function
+        int currentIfLabelsSize=0; // for numbering labels for if statements in a function
         std::wstring dataAsm=
             L"section .data\n"
-            L"\tbrk_end dq 0\n";
+            L"\tbrk_end dq 0\n\n";
         std::wstring bssAsm=L"";
         std::wstring textAsm=
             L"section .text\n"
-            L"\tglobal _start\n"
+            L"\tglobal _start"  // new line will be added in getAssemblyFile()
         ;
 
         std::unordered_map<StmListScope*, Assembler::AsmLabel> labelsAsm; // first of pair is for label name, second for the full label's text
@@ -61,8 +63,7 @@ class Compiler:public ASTVisitor{
         
         int getVariableSize(SharedVariable var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
-        std::wstring getAsmLabelName(StmListScope* scope);
-        Assembler::AsmLabel* getAsmLabelInstructions(StmListScope* scope);
+        void addNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");
         
     public:
         void visit(PackageScope* scope)override;

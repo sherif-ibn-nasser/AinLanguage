@@ -8,29 +8,41 @@ namespace Assembler {
     std::wstring AsmInstruction::getAsmText(bool showComment){
         std::wstring text;
         switch (this->type) {
+            case LOCAL_LABEL:
+                return operands[0].value;
             case NOP:
-                text+=L"nop";break;
+                text=L"nop";break;
             case PUSH:
-                text+=L"push";break;
+                text=L"push";break;
             case POP
-                :text+=L"pop";break;
+                :text=L"pop";break;
             case MOV:
-                text+=L"mov";break;
+                text=L"mov";break;
             case LEA:
-                text+=L"lea";break;
+                text=L"lea";break;
             case ADD:
-                text+=L"add";break;
+                text=L"add";break;
             case SUB:
-                text+=L"sub";break;
+                text=L"sub";break;
             case XOR:
-                text+=L"xor";break;
+                text=L"xor";break;
             case CALL:
-                text+=L"call";break;
+                text=L"call";break;
             case RET:
-                text+=L"ret";break;
+                text=L"ret";break;
             case SYSCALL:
-                text+=L"syscall";break;
-        }
+                text=L"syscall";break;
+            case CMP:
+                text=L"cmp";break;
+            case TEST:
+                text=L"test";break;
+            case JMP:
+                text=L"jmp";break;
+            case JZ:
+                text=L"jz";break;
+            case JNZ:
+                text=L"jnz";break;
+            }
         auto i=0;
         for (auto &operand : this->operands) {
             text+=((i==0)?L" ":L", ")+operand.value;
@@ -60,11 +72,25 @@ namespace Assembler {
         auto text=this->label+L":";
         if(!this->comment.empty())
             text+=L"\t; "+comment;
-        text+=L"\n";
         for (auto& instruction : this->instructions) {
-            text+=L"\t"+instruction.getAsmText()+L"\n";
+            text+=L"\n";
+            if(instruction.type==AsmInstruction::LOCAL_LABEL)
+                text+=L"\n";
+            else
+                text+=L"\t";
+            text+=instruction.getAsmText();
         }
         return text;
+    }
+
+    AsmInstruction localLabel(std::wstring label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::LOCAL_LABEL,
+            .operands={
+                Assembler::label(L"."+label+L":")
+            },
+            .comment=comment,
+        };
     }
 
     AsmInstruction nop(std::wstring comment){
@@ -153,6 +179,46 @@ namespace Assembler {
         };
     }
 
+    AsmInstruction cmp(AsmOperand s1, AsmOperand s2, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CMP,
+            .operands={s1, s2},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction test(AsmOperand s1, AsmOperand s2, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::TEST,
+            .operands={s1, s2},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction jmp(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JMP,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction jz(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JZ,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction jnz(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JNZ,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment){
         if(size==0)
             return nop(comment);
@@ -173,6 +239,10 @@ namespace Assembler {
                 :mov(RDI(), imm(std::to_wstring(errorCode))),
             syscall()
         };
+    }
+
+    AsmOperand label(std::wstring label){
+        return AsmOperand{.type=AsmOperand::LABEL, .value=label};
     }
 
     AsmOperand addressMov(AsmOperand op, int offset){
@@ -358,6 +428,21 @@ namespace Assembler {
                 value=L"R10D"; break;
             default:
                 value=L"R10"; break;
+        }
+        return AsmOperand{.type=AsmOperand::REG, .value=value};
+    }
+
+    AsmOperand R12(int size){
+        auto value=L"";
+        switch (size) {
+            case AsmInstruction::BYTE:
+                value=L"R12B"; break;
+            case AsmInstruction::WORD:
+                value=L"R12W"; break;
+            case AsmInstruction::DWORD:
+                value=L"R12D"; break;
+            default:
+                value=L"R12"; break;
         }
         return AsmOperand{.type=AsmOperand::REG, .value=value};
     }

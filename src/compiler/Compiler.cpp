@@ -9,11 +9,14 @@
 #include "FunParam.hpp"
 #include "FunScope.hpp"
 #include "BuiltInFunScope.hpp"
+#include "IExpression.hpp"
 #include "IntValue.hpp"
+#include "KeywordToken.hpp"
 #include "LongValue.hpp"
 #include "SharedPtrTypes.hpp"
 #include "Type.hpp"
 #include "ULongValue.hpp"
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -60,8 +63,12 @@ void Compiler::visit(FunScope* scope){
     labelsAsm[scope]=Assembler::AsmLabel{.label=label, .comment=comment};
 
     auto prevLabelAsm=currentAsmLabel;
-    currentAsmLabel=getAsmLabelInstructions(scope);
+    auto prevLoopsLabelsSize=currentLoopLabelsSize;
+    auto prevIfLabelsSize=currentIfLabelsSize;
 
+    currentAsmLabel=&labelsAsm[scope];
+    currentLoopLabelsSize=0;
+    currentIfLabelsSize=0;
 
     *currentAsmLabel+=Assembler::push(Assembler::RBP());
     *currentAsmLabel+=Assembler::mov(Assembler::RBP(), Assembler::RSP());
@@ -71,12 +78,10 @@ void Compiler::visit(FunScope* scope){
 
     // locals contains params, so we don't offset params
     auto nonParams=scope->getNonParamsFromLocals();
-    int nonParamsReservedSize=0;
 
-    if(nonParams->size()>0){
-        nonParamsReservedSize=getVariablesSize(nonParams);
-        Assembler::reserveSpaceOnStack(nonParamsReservedSize);
-    }
+    if(nonParams->size()>0)
+        *currentAsmLabel+=Assembler::reserveSpaceOnStack(getVariablesSize(nonParams));
+    
 
     for(auto stm:*scope->getStmList()){
         stm->accept(this);
@@ -98,11 +103,13 @@ void Compiler::visit(FunScope* scope){
     *currentAsmLabel+=Assembler::pop(Assembler::RBP());
     
     if(isMain)
-        *currentAsmLabel+=Assembler::exit(0);
+        *currentAsmLabel+=Assembler::exit(0, L"إنهاء البرنامج");
     else
         *currentAsmLabel+=Assembler::ret();
 
     currentAsmLabel=prevLabelAsm;
+    currentLoopLabelsSize=prevLoopsLabelsSize;
+    currentIfLabelsSize=prevIfLabelsSize;
     
 }
 
@@ -145,7 +152,41 @@ void Compiler::visit(IfStatement* stm){
 }
 
 void Compiler::visit(WhileStatement* stm){
-    // TODO    
+
+    auto loopNumStr=std::to_wstring(++currentLoopLabelsSize);
+    auto breakLabelStr=L"break"+loopNumStr;
+
+    auto loopLabel=Assembler::localLabel(L"loop"+loopNumStr);
+    auto breakLabel=Assembler::localLabel(breakLabelStr);
+
+    *currentAsmLabel+=Assembler::push(Assembler::R12());
+    *currentAsmLabel+=Assembler::mov(Assembler::R12(), Assembler::RSP());
+
+    *currentAsmLabel+=loopLabel;
+
+    auto condition=stm->getCondition().get();
+
+    condition->accept(this);
+
+    *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+
+    addNegatedConditionalJumpInstruction(condition, Assembler::label(L"."+breakLabelStr));
+
+    // *currentAsmLabel+=Assembler::pop(Assembler::RAX());
+
+    *currentAsmLabel+=Assembler::reserveSpaceOnStack(
+        getVariablesSize(stm->getLoopScope()->getLocals())
+    );
+    
+    for(auto stm:*stm->getLoopScope()->getStmList()){
+        stm->accept(this);
+    }
+    
+    ContinueStatement(0, NULL).accept(this); // Simulate a continue, to make loop runs
+
+    *currentAsmLabel+=breakLabel;
+    *currentAsmLabel+=Assembler::mov(Assembler::RSP(), Assembler::R12());
+    *currentAsmLabel+=Assembler::pop(Assembler::R12());
 }
 
 void Compiler::visit(DoWhileStatement* stm){
@@ -153,11 +194,26 @@ void Compiler::visit(DoWhileStatement* stm){
 }
 
 void Compiler::visit(BreakStatement* stm){
-    // TODO    
+    auto loopNumStr=std::to_wstring(currentLoopLabelsSize);
+    *currentAsmLabel+=
+        Assembler::jmp(
+            Assembler::label(L".break"+loopNumStr),
+            KeywordToken::BREAK.getVal() // instruction comment
+    );
 }
 
 void Compiler::visit(ContinueStatement* stm){
-    // TODO    
+    *currentAsmLabel+=
+        Assembler::mov(
+            Assembler::RSP(),
+            Assembler::R12(),
+            Assembler::AsmInstruction::IMPLICIT,
+            KeywordToken::CONTINUE.getVal() // instruction comment
+    );
+
+    auto loopNumStr=std::to_wstring(currentLoopLabelsSize);
+
+    *currentAsmLabel+=Assembler::jmp(Assembler::label(L".loop"+loopNumStr));
 }
 
 void Compiler::visit(ReturnStatement* stm){
@@ -228,7 +284,7 @@ void Compiler::visit(FunInvokeExpression* ex){
     if (dynamic_cast<BuiltInFunScope*>(fun))
         return; // it will pop from the stack automaticaly
 
-    auto funNameAsm=getAsmLabelName(fun);
+    auto funNameAsm=labelsAsm[fun].label;
     auto decl=fun->getDecl();
     std::wstring comment;
 
@@ -260,11 +316,13 @@ void Compiler::visit(LiteralExpression* ex){
     // TODO: strings
     auto value=ex->getValue();
     Assembler::AsmOperand imm;
-    if(auto boolVal=std::dynamic_pointer_cast<BoolValue>(value))
-        imm=(boolVal->getValue())
-            ?Assembler::imm(L"1")
-            :Assembler::imm(L"0");
-    
+    if(auto boolVal=std::dynamic_pointer_cast<BoolValue>(value)){
+        if(!boolVal->getValue()){
+            *currentAsmLabel+=Assembler::zero(Assembler::RAX());
+            return;
+        }
+        imm=Assembler::imm(L"1");
+    }
     else if(auto charVal=std::dynamic_pointer_cast<CharValue>(value)){
         auto val=charVal->toString();
         if(val==L"\n")
@@ -349,9 +407,9 @@ void Compiler::visit(ThisFunInvokeExpression* ex){
 }
 
 std::wstring Compiler::getAssemblyFile(){
-    auto asmFile=dataAsm+bssAsm+textAsm+L"\n";
+    auto asmFile=dataAsm+bssAsm+textAsm;
     for(auto labelAsmIt:labelsAsm){
-        asmFile+=labelAsmIt.second.getAsmText()+L"\n";
+        asmFile+=L"\n\n"+labelAsmIt.second.getAsmText();
     }
     return asmFile;
 }
@@ -362,16 +420,15 @@ int Compiler::getVariableSize(SharedVariable var){
 
 int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
     auto size=0;
-    for (auto varIt:*vars){
+    for (auto &varIt:*vars){
         size+=getVariableSize(varIt.second);
     }
     return size;
 }
 
-std::wstring Compiler::getAsmLabelName(StmListScope* scope){
-    return labelsAsm[scope].label;
-}
+void Compiler::addNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment){
+    // TODO: handle the type of the jump instruction
+    
+    *currentAsmLabel+=Assembler::jz(label,comment);
 
-Assembler::AsmLabel* Compiler::getAsmLabelInstructions(StmListScope* scope){
-    return &labelsAsm[scope];
 }

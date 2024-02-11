@@ -22,6 +22,7 @@ namespace Assembler {
     struct AsmInstruction{
         // TODO: Add more instructions
         enum InstructionType{
+            LOCAL_LABEL,
             NOP,
             PUSH,
             POP,
@@ -33,6 +34,11 @@ namespace Assembler {
             CALL,
             RET,
             SYSCALL,
+            CMP,
+            TEST,
+            JMP,
+            JZ,
+            JNZ,
         };
 
         enum InstructionSize{
@@ -60,6 +66,7 @@ namespace Assembler {
         std::wstring getAsmText();
     };
 
+    AsmInstruction localLabel(std::wstring label, std::wstring comment=L"");
     AsmInstruction nop(std::wstring comment=L"");
     AsmInstruction push(AsmOperand op, std::wstring comment=L"");
     AsmInstruction pop(AsmOperand op, std::wstring comment=L"");
@@ -72,10 +79,17 @@ namespace Assembler {
     AsmInstruction call(AsmOperand label, std::wstring comment=L"");
     AsmInstruction ret(std::wstring comment=L"");
     AsmInstruction syscall(std::wstring comment=L"");
+    AsmInstruction cmp(AsmOperand s1, AsmOperand s2, std::wstring comment=L"");
+    AsmInstruction test(AsmOperand s1, AsmOperand s2, std::wstring comment=L"");
+    AsmInstruction jmp(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction jz(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction jnz(AsmOperand label, std::wstring comment=L"");
+
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");
     std::vector<AsmInstruction> exit(int errorCode, std::wstring comment=L"");
 
+    AsmOperand label(std::wstring label);
     AsmOperand addressMov(AsmOperand op, int offset=0);
     AsmOperand addressLea(std::wstring address);
     AsmOperand imm(std::wstring value);
@@ -91,6 +105,7 @@ namespace Assembler {
     AsmOperand R8(int size=AsmInstruction::QWORD);
     AsmOperand R9(int size=AsmInstruction::QWORD);
     AsmOperand R10(int size=AsmInstruction::QWORD);
+    AsmOperand R12(int size=AsmInstruction::QWORD);
     AsmOperand brk_end();
 
 }
