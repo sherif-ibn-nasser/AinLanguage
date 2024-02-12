@@ -412,21 +412,16 @@ void Compiler::visit(LogicalExpression* ex){
     auto shortcutLocalLabel=Assembler::localLabel(shortcutLabelStr);
     auto shortcutLabel=Assembler::label(L"."+shortcutLabelStr);
 
+    ex->getLeft()->accept(this);
+    *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+
     switch (ex->getLogicalOp()) {
         case LogicalExpression::Operation::OR:{
-            optimizeConditionalJumpInstruction(
-                ex->getLeft().get(),
-                shortcutLabel,
-                L"أو الشرطية"
-            );
+            *currentAsmLabel+=Assembler::jnz(shortcutLabel,L"أو الشرطية");
             break;
         }
         case LogicalExpression::Operation::AND:{
-            optimizeNegatedConditionalJumpInstruction(
-                ex->getLeft().get(),
-                shortcutLabel,
-                L"و الشرطية"
-            );
+            *currentAsmLabel+=Assembler::jz(shortcutLabel,L"و الشرطية");
             break;
         }
     }
