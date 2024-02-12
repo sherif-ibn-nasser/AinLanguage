@@ -62,31 +62,39 @@ SharedIExpression ExpressionParser::parseBinaryOperatorExpression(int precedence
     
     auto left=parseBinaryOperatorExpression(precedence-1);
 
-    while(currentMatchByPrecedence(precedence)){
-        int lineNumber=iterator->lineNumber;
+    int lineNumber=iterator->lineNumber;
 
-        auto op=iterator->currentToken();
+    auto op=iterator->currentToken();
+
+    while(currentMatchByPrecedence(precedence)){
+        lineNumber=iterator->lineNumber;
+
+        op=iterator->currentToken();
 
         next();
-        
+
+        if(*op==SymbolToken::LOGICAL_OR){
+            auto right=parseBinaryOperatorExpression(precedence);
+            if(!right)
+                throw ExpressionExpectedException(iterator->lineNumber);
+            return std::make_shared<LogicalExpression>(
+                lineNumber,LogicalExpression::Operation::OR,left,right
+            );
+        }
+
+        if(*op==SymbolToken::LOGICAL_AND){
+            auto right=parseBinaryOperatorExpression(precedence);
+            if(!right)
+                throw ExpressionExpectedException(iterator->lineNumber);
+            return std::make_shared<LogicalExpression>(
+                lineNumber,LogicalExpression::Operation::AND,left,right
+            );
+        }
+
         auto right=parseBinaryOperatorExpression(precedence-1);
 
         if(!right)
             throw ExpressionExpectedException(iterator->lineNumber);
-
-        if(*op==SymbolToken::LOGICAL_OR){
-            left=std::make_shared<LogicalExpression>(
-                lineNumber,LogicalExpression::Operation::OR,left,right
-            );
-            continue;
-        }
-
-        if(*op==SymbolToken::LOGICAL_AND){
-            left=std::make_shared<LogicalExpression>(
-                lineNumber,LogicalExpression::Operation::AND,left,right
-            );
-            continue;
-        }
 
         auto args=std::make_shared<std::vector<SharedIExpression>>(std::vector({right}));
 
