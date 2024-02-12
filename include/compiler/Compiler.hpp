@@ -51,7 +51,7 @@ class Compiler:public ASTVisitor{
         int currentLogicalShortcutsLabelsSize=0; // for numbering labels for if statements in a function
         std::wstring dataAsm=
             L"section .data\n"
-            L"\tbrk_end dq 0\n\n";
+            L"\tbrk_end dq 0\n";
         std::wstring bssAsm=L"";
         std::wstring textAsm=
             L"section .text\n"
@@ -60,9 +60,13 @@ class Compiler:public ASTVisitor{
 
         std::unordered_map<StmListScope*, Assembler::AsmLabel> labelsAsm; // first of pair is for label name, second for the full label's text
 
+        std::unordered_map<Variable*, void*> inUseGlobalVariables; // The global variable that are accessed in the user code, we count them to optimize the asm
+
         Assembler::AsmLabel* currentAsmLabel;
+        Assembler::AsmLabel* startAsmLabel;
+        Assembler::AsmLabel* initAsmLabel;
         
-        int getVariableSize(SharedVariable var);
+        int getVariableSize(Variable* var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
         void optimizeConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");
         void optimizeNegatedConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");

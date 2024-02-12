@@ -15,21 +15,29 @@
 #include "KeywordToken.hpp"
 #include "LongValue.hpp"
 #include "OperatorFunInvokeExpression.hpp"
+#include "PackageScope.hpp"
 #include "SharedPtrTypes.hpp"
 #include "StmListScope.hpp"
 #include "Type.hpp"
 #include "ULongValue.hpp"
+#include "Variable.hpp"
 #include "WhileStatement.hpp"
 #include <cstddef>
 #include <memory>
 #include <string>
 
-void Compiler::visit(PackageScope* packageScope){
-    // TODO
+void Compiler::visit(PackageScope* scope){
+
+    for(auto fileIterator:scope->getFiles()){
+        fileIterator.second->accept(this);
+    }
+    for(auto packageIterator:scope->getPackages()){
+        packageIterator.second->accept(this);
+    }
 }
 
 void Compiler::visit(FileScope* scope){
-    // TODO    
+    scope->getGlobalVarsInitStmList()->accept(this);
 }
 
 void Compiler::visit(ClassScope* scope){
@@ -106,8 +114,10 @@ void Compiler::visit(FunScope* scope){
     *currentAsmLabel+=Assembler::mov(Assembler::RSP(), Assembler::RBP());
     *currentAsmLabel+=Assembler::pop(Assembler::RBP());
     
-    if(isMain)
+    if(isMain){
         *currentAsmLabel+=Assembler::exit(0, L"إنهاء البرنامج");
+        startAsmLabel=currentAsmLabel;
+    }
     else
         *currentAsmLabel+=Assembler::ret();
 
@@ -134,9 +144,17 @@ void Compiler::visit(StmListScope* scope){
 }
 
 void Compiler::visit(VarStm* stm){
-    auto var=stm->getVar();
+    auto var=stm->getVar().get();
+
+    auto isGlobal=inUseGlobalVariables.find(var)!=inUseGlobalVariables.end();
+
+    if (currentAsmLabel==initAsmLabel&&!isGlobal)
+        return;
+
+    
+
     auto varSize=getVariableSize(var);
-    auto offset=offsets[var.get()];
+    auto offset=offsets[var];
     auto comment=((*var->isValue())?L"تعريف ثابت ":L"تعريف متغير ")+*var->getName()+L": "+var->getType()->getClassScope()->getName();
     stm->getEx()->accept(this);
     *currentAsmLabel+=Assembler::mov(
@@ -292,10 +310,11 @@ void Compiler::visit(ExpressionStatement* stm){
 }
 
 void Compiler::visit(VarAccessExpression* ex){
-    auto var=ex->getVar();
+    auto var=ex->getVar().get();
     auto varSize=getVariableSize(var);
-    auto offset=offsets[var.get()];
+    auto offset=offsets[var];
     auto comment=((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")+*var->getName();
+
     *currentAsmLabel+=
         Assembler::mov(
             Assembler::RAX(varSize),
@@ -303,6 +322,26 @@ void Compiler::visit(VarAccessExpression* ex){
             Assembler::AsmInstruction::IMPLICIT,
             comment
         );
+
+    if (offset.reg.value.find(L"var")!=0)
+        return;
+
+    // The variable is global
+    
+    if(inUseGlobalVariables.find(var)==inUseGlobalVariables.end()){
+        inUseGlobalVariables[var]={};
+        bssAsm+=L"\t"+offset.reg.value+L":\t";
+        switch (varSize) {
+            case Assembler::AsmInstruction::BYTE:
+                bssAsm+=L"RESB 1\n";break;
+            case Assembler::AsmInstruction::WORD:
+                bssAsm+=L"RESW 1\n";break;
+            case Assembler::AsmInstruction::DWORD:
+                bssAsm+=L"RESD 1\n";break;
+            case Assembler::AsmInstruction::QWORD:
+                bssAsm+=L"RESQ 1\n";break;
+        }
+    }
 }
 
 void Compiler::visit(FunInvokeExpression* ex){
@@ -455,9 +494,9 @@ void Compiler::visit(LogicalExpression* ex){
 }
 
 void Compiler::visit(NonStaticVarAccessExpression* ex){
-    auto var=ex->getVar();
+    auto var=ex->getVar().get();
     auto varSize=getVariableSize(var);
-    auto offset=offsets[var.get()];
+    auto offset=offsets[var];
     auto comment=
         ((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")
         +ex->getInside()->getReturnType()->getClassScope()->getName()
@@ -507,9 +546,9 @@ void Compiler::visit(ThisExpression* ex){
 }
 
 void Compiler::visit(ThisVarAccessExpression* ex){
-    auto var=ex->getVar();
+    auto var=ex->getVar().get();
     auto varSize=getVariableSize(var);
-    auto offset=offsets[var.get()];
+    auto offset=offsets[var];
     auto comment=
         ((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")
         +ex->getClassScope()->getName()
@@ -532,21 +571,46 @@ void Compiler::visit(ThisFunInvokeExpression* ex){
 }
 
 std::wstring Compiler::getAssemblyFile(){
-    auto asmFile=dataAsm+bssAsm+textAsm;
+
+    if(!bssAsm.empty()){
+        bssAsm=L"section .bss\n"+bssAsm+L"\n";
+        initAsmLabel=&labelsAsm[NULL];
+        currentAsmLabel=initAsmLabel;
+        currentAsmLabel->label=L"init";
+        currentAsmLabel->comment=L"تهيئة";
+        PackageScope::AIN_PACKAGE->accept(this);
+    }
+
+    auto asmFile=dataAsm+L"\n"+bssAsm+textAsm;
+
     for(auto labelAsmIt:labelsAsm){
+
+        if(initAsmLabel&&labelAsmIt.second.label==initAsmLabel->label)
+            continue;
+
+        if(initAsmLabel&&labelAsmIt.second.label==startAsmLabel->label){
+            startAsmLabel->instructions.insert(
+                startAsmLabel->instructions.begin(),
+                initAsmLabel->instructions.begin(),
+                initAsmLabel->instructions.end()
+            );
+            asmFile+=L"\n\n"+startAsmLabel->getAsmText();
+            continue;
+        }
+
         asmFile+=L"\n\n"+labelAsmIt.second.getAsmText();
     }
     return asmFile;
 }
 
-int Compiler::getVariableSize(SharedVariable var){
+int Compiler::getVariableSize(Variable* var){
     return Type::getSize(var->getType().get());
 }
 
 int Compiler::getVariablesSize(SharedMap<std::wstring, SharedVariable> vars){
     auto size=0;
     for (auto &varIt:*vars){
-        size+=getVariableSize(varIt.second);
+        size+=getVariableSize(varIt.second.get());
     }
     return size;
 }

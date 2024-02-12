@@ -12,7 +12,7 @@
 class CompilerVarsOffsetSetter:public ASTVisitor{
     public:
         int stmListScopeOffset;
-        int globalVarsOffset=0; // 1st address in data segment
+        int globalVarsCounter=0; // 1st address in data segment
         struct Offset{
             Offset(Assembler::AsmOperand reg, int value);
             Offset();

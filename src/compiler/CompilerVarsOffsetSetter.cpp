@@ -74,31 +74,22 @@ void CompilerVarsOffsetSetter::visit(FileScope* scope){
         funIt.second->accept(this);
     }
 
-    // FIXME: how to store global variables and constants
-    /*
     for(auto varIt:*scope->getPublicVariables()){
         auto var=varIt.second.get();
         (*offsets)[var]=Offset(
-            Compiler::RDS,
-            globalVarsOffset
+            Assembler::label(L"var"+std::to_wstring(++globalVarsCounter)),
+            0
         );
-        globalVarsOffset+=var->getType()->getClassScope()->getSize()+8; // + 8 bytes for the address
     }
 
     for(auto varIt:*scope->getPrivateVariables()){
         auto var=varIt.second.get();
         (*offsets)[var]=Offset(
-            Compiler::RDS,
-            globalVarsOffset
+            Assembler::label(L"var"+std::to_wstring(++globalVarsCounter)),
+            0
         );
-        globalVarsOffset+=var->getType()->getClassScope()->getSize()+8; // + 8 bytes for the address
     }
-    */
 
-    /** TODO
-    if(globalVarsOffset>=DATA_SIZE)
-        throw;
-    */
 }
 
 void CompilerVarsOffsetSetter::visit(ClassScope* scope){
