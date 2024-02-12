@@ -744,7 +744,11 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
             return;
 
         }
-        case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:
+        case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:{
+            *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"1"));
+            *currentAsmLabel+=Assembler::_xor(Assembler::RAX(), Assembler::imm(L"1"));
+            return;
+        }
         case OperatorFunInvokeExpression::Operator::BIT_NOT:
             *currentAsmLabel+=Assembler::_not(Assembler::RAX());
             return;
