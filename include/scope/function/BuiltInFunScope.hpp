@@ -272,7 +272,16 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getPlusFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ReturnValue>(a+b);
         },
-        true
+        true,
+        []{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::lea(
+                    Assembler::RAX(),
+                    Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
+                )
+            };
+        }
     );
 }
 
@@ -292,7 +301,17 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getMinusFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ReturnValue>(a-b);
         },
-        true
+        true,
+        []{
+            return std::vector{ 
+                Assembler::pop(Assembler::RCX()),
+                Assembler::neg(Assembler::RAX()),
+                Assembler::lea(
+                    Assembler::RAX(),
+                    Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
+                )
+            };
+        }
     );
 }
 
@@ -312,7 +331,15 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getTimesFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ReturnValue>(a*b);
         },
-        true
+        true,
+        [=]{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                    ?Assembler::mul(Assembler::RCX())
+                    :Assembler::imul(Assembler::RCX())
+            };
+        }
     );
 }
 
@@ -332,7 +359,17 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getDivFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ReturnValue>(a/b);
         },
-        true
+        true,
+        [=]{
+            return std::vector{
+                Assembler::zero(Assembler::RDX()),
+                Assembler::mov(Assembler::RCX(), Assembler::RAX()),
+                Assembler::pop(Assembler::RAX()), 
+                (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                    ?Assembler::div(Assembler::RCX())
+                    :idiv(Assembler::RCX())
+            };
+        }
     );
 }
 
@@ -352,7 +389,23 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getModFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ReturnValue>(a%b);
         },
-        true
+        true,
+        [=]{
+            return std::vector{
+                Assembler::zero(Assembler::RDX()),
+                Assembler::mov(Assembler::RCX(), Assembler::RAX()),
+                Assembler::pop(Assembler::RAX()), 
+                (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                    ?Assembler::div(Assembler::RCX())
+                    :idiv(Assembler::RCX()),
+                Assembler::mov(
+                    Assembler::RAX(),
+                    Assembler::RDX(),
+                    Assembler::AsmInstruction::IMPLICIT,
+                    L"باقي القسمة"
+                )
+            };
+        }
     );
 }
 
@@ -408,7 +461,13 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getShrFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ParamValue>(a>>b);
         },
-        true
+        true,
+        []{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::shr(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE))
+            };
+        }
     );
 }
 
@@ -426,7 +485,13 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getShlFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ParamValue>(a<<b);
         },
-        true
+        true,
+        []{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::shl(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE))
+            };
+        }
     );
 }
 
@@ -445,7 +510,13 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getBitAndFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ParamValue>(a&b);
         },
-        true
+        true,
+        []{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::_and(Assembler::RAX(), Assembler::RCX())
+            };
+        }
     );
 }
 
@@ -464,7 +535,13 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getXorFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ParamValue>(a^b);
         },
-        true
+        true,
+        []{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::RCX())
+            };
+        }
     );
 }
 
@@ -483,7 +560,13 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getBitOrFun(
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
             interpreter->AX=std::make_shared<ParamValue>(a|b);
         },
-        true
+        true,
+        []{
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::_or(Assembler::RAX(), Assembler::RCX())
+            };
+        }
     );
 }
 

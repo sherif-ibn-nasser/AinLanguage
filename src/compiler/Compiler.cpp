@@ -177,11 +177,33 @@ void Compiler::visit(AssignStatement* stm){
         lastInstruction.operands[0],
         Assembler::AsmInstruction::IMPLICIT,
         comment
-    ); 
+    );
 }
 
 void Compiler::visit(AugmentedAssignStatement* stm){
-    // TODO    
+    if(auto isBuiltIn=std::dynamic_pointer_cast<BuiltInFunScope>(stm->getOpFun())){
+        stm->getLeft()->accept(this);
+        auto instructions=&currentAsmLabel->instructions;
+        auto lastInstruction=(*instructions)[instructions->size()-1];
+        
+        *currentAsmLabel+=Assembler::push(Assembler::RAX());
+        stm->getRight()->accept(this);
+        stm->getOpFun()->accept(this);
+
+        auto comment=lastInstruction.comment;
+        std::wstring oldComment=L"الوصول ل";
+        auto newComment=L"تخصيص ";
+        comment.replace(0, oldComment.size(), newComment);
+
+        *currentAsmLabel+=Assembler::mov(
+            lastInstruction.operands[1],
+            lastInstruction.operands[0],
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        );
+    }else{
+        // TODO
+    }
 }
 
 void Compiler::visit(IfStatement* stm){
@@ -749,78 +771,19 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
             return;
 
         // args size is 1
-        case OperatorFunInvokeExpression::Operator::PLUS:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
-            *currentAsmLabel+=Assembler::lea(
-                Assembler::RAX(),
-                Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
-            );
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::MINUS:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
-            *currentAsmLabel+=Assembler::neg(Assembler::RAX());
-            *currentAsmLabel+=Assembler::lea(
-                Assembler::RAX(),
-                Assembler::addressLea(Assembler::RAX().value+L"+"+Assembler::RCX().value)
-            );
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::TIMES:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RDI
-            if (*returnType==*Type::UINT||*returnType==*Type::ULONG)
-                *currentAsmLabel+=Assembler::mul(Assembler::RCX());
-            else
-                *currentAsmLabel+=Assembler::imul(Assembler::RCX());
-            return;
-        }
+        case OperatorFunInvokeExpression::Operator::PLUS:
+        case OperatorFunInvokeExpression::Operator::MINUS:
+        case OperatorFunInvokeExpression::Operator::TIMES:
         case OperatorFunInvokeExpression::Operator::DIV:
-        case OperatorFunInvokeExpression::Operator::MOD:{
-            *currentAsmLabel+=Assembler::zero(Assembler::RDX());
-            *currentAsmLabel+=Assembler::mov(Assembler::RCX(), Assembler::RAX());
-            *currentAsmLabel+=Assembler::pop(Assembler::RAX());
-            
-            if (*returnType==*Type::UINT||*returnType==*Type::ULONG)
-                *currentAsmLabel+=Assembler::div(Assembler::RCX());
-            else
-                *currentAsmLabel+=Assembler::idiv(Assembler::RCX());
-
-            if(op==OperatorFunInvokeExpression::Operator::DIV)
-                *currentAsmLabel+=Assembler::mov(
-                    Assembler::RAX(),
-                    Assembler::RDX(),
-                    Assembler::AsmInstruction::IMPLICIT,
-                    L"باقي القسمة"
-                );
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::XOR:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
-            *currentAsmLabel+=Assembler::_xor(Assembler::RAX(), Assembler::RCX());
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::BIT_OR:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
-            *currentAsmLabel+=Assembler::_or(Assembler::RAX(), Assembler::RCX());
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::BIT_AND:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
-            *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::RCX());
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::SHR:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
-            *currentAsmLabel+=Assembler::shr(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE));
-            return;
-        }
-        case OperatorFunInvokeExpression::Operator::SHL:{
-            *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
-            *currentAsmLabel+=Assembler::shl(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE));
-            return;
-        }
+        case OperatorFunInvokeExpression::Operator::MOD:
+        case OperatorFunInvokeExpression::Operator::XOR:
+        case OperatorFunInvokeExpression::Operator::BIT_OR:
+        case OperatorFunInvokeExpression::Operator::BIT_AND:
+        case OperatorFunInvokeExpression::Operator::SHR:
+        case OperatorFunInvokeExpression::Operator::SHL:
         case OperatorFunInvokeExpression::Operator::POW:
         case OperatorFunInvokeExpression::Operator::GET:
+            ex->getFun()->accept(this);
             return;
 
         // args size is 2
