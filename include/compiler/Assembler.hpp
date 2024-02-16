@@ -73,6 +73,9 @@ namespace Assembler {
             SETAE,
             SETB,
             SETBE,
+            CBW,
+            CWDE,
+            CDQE,
         };
 
         enum InstructionSize{
@@ -142,6 +145,9 @@ namespace Assembler {
     AsmInstruction setae(AsmOperand s, std::wstring comment=L"");
     AsmInstruction setb(AsmOperand s, std::wstring comment=L"");
     AsmInstruction setbe(AsmOperand s, std::wstring comment=L"");
+    AsmInstruction cbw(std::wstring comment=L"");
+    AsmInstruction cwde(std::wstring comment=L"");
+    AsmInstruction cdqe(std::wstring comment=L"");
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");

@@ -216,6 +216,7 @@ class BuiltInFunScope:public FunScope{
         static const inline auto BRK_NAME=L"إزاحة_الذاكرة";
         static const inline auto WRITE_TO_ADDRESS_NAME=L"اكتب";
         static const inline auto READ_LONG_FROM_ADDRESS_NAME=L"اقرأ_كبير";
+        static const inline auto READ_BYTE_FROM_ADDRESS_NAME=L"اقرأ_بايت";
         static const inline auto READ_LINE_NAME=L"أدخل_";
         static const inline auto READ_NAME=L"أدخل";
         static const inline auto PRINT_NAME=L"اظهر";

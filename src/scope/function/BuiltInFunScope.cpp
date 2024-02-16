@@ -316,6 +316,25 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
+    auto READ_BYTE_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_BYTE_FROM_ADDRESS_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RAX())),
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
+
     auto READ=std::make_shared<BuiltInFunScope>(
         READ_NAME,
         Type::STRING,
@@ -502,6 +521,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         WRITE_CHAR_TO_ADDRESS,
         WRITE_LONG_TO_ADDRESS,
         READ_LONG_FROM_ADDRESS,
+        READ_BYTE_FROM_ADDRESS,
         READ,READ_LINE,
         PRINT_INT,PRINTLN_INT,
         PRINT_UINT,PRINTLN_UINT,

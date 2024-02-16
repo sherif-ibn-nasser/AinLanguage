@@ -110,6 +110,12 @@ namespace Assembler {
                 text=L"setb";break;
             case SETBE:
                 text=L"setbe";break;
+            case CBW:
+                text=L"cbw";break;
+            case CWDE:
+                text=L"cwde";break;
+            case CDQE:
+                text=L"cdqe";break;
         }
 
         switch (size) {
@@ -514,6 +520,32 @@ namespace Assembler {
         };
     }
 
+    AsmInstruction cbw(std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CBW,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cwde(std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CWDE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cdqe(std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CDQE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={},
+            .comment=comment
+        };
+    }
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment){
         if(size==0)
