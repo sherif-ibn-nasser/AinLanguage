@@ -75,6 +75,9 @@ class Compiler:public ASTVisitor{
         int getLocalsSize(StmListScope *scope);
 
         void invokeBuiltInOpFun(OperatorFunInvokeExpression* ex);
+
+        void addInstructionToConvertBetweenDataTypes(int fromSize, int toSize, bool isUnsigned);
+
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;

@@ -116,6 +116,10 @@ namespace Assembler {
                 text=L"cwde";break;
             case CDQE:
                 text=L"cdqe";break;
+            case CWD:
+                text=L"cwd";break;
+            case CDQ:
+                text=L"cdq";break;
         }
 
         switch (size) {
@@ -541,6 +545,24 @@ namespace Assembler {
     AsmInstruction cdqe(std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::CDQE,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cwd(std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CWD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cdq(std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CDQ,
             .size=AsmInstruction::IMPLICIT,
             .operands={},
             .comment=comment

@@ -463,8 +463,10 @@ void Compiler::visit(LogicalExpression* ex){
     auto shortcutLabel=Assembler::label(L"."+shortcutLabelStr);
 
     ex->getLeft()->accept(this);
-    *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
-
+    
+    auto AL=Assembler::RAX(Assembler::AsmInstruction::BYTE);
+    *currentAsmLabel+=Assembler::test(AL, AL);
+    
     switch (ex->getLogicalOp()) {
         case LogicalExpression::Operation::OR:{
             *currentAsmLabel+=Assembler::jnz(shortcutLabel,L"أو الشرطية");
@@ -638,7 +640,8 @@ void Compiler::optimizeConditionalJumpInstruction(IExpression* condition, Assemb
         case Assembler::AsmInstruction::SETBE:
             jumpType=Assembler::AsmInstruction::JBE;break;
         default:{
-            *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+            auto AL=Assembler::RAX(Assembler::AsmInstruction::BYTE);
+            *currentAsmLabel+=Assembler::test(AL, AL);
             *currentAsmLabel+=Assembler::jnz(label,comment);
             return;
         }
@@ -686,7 +689,8 @@ void Compiler::optimizeNegatedConditionalJumpInstruction(IExpression* condition,
         case Assembler::AsmInstruction::SETBE:
             jumpType=Assembler::AsmInstruction::JA;break;
         default:{
-            *currentAsmLabel+=Assembler::test(Assembler::RAX(), Assembler::RAX());
+            auto AL=Assembler::RAX(Assembler::AsmInstruction::BYTE);
+            *currentAsmLabel+=Assembler::test(AL, AL);
             *currentAsmLabel+=Assembler::jz(label,comment);
             return;
         }
@@ -747,6 +751,39 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
 
     auto inside=ex->getInside();
     inside->accept(this);
+    auto insideSize=Type::getSize(inside->getReturnType().get());
+    auto argSize=0; // used for binary operators later
+
+    auto isUnsigned=
+        *inside->getReturnType()==*Type::UBYTE
+        ||
+        *inside->getReturnType()==*Type::UINT
+        ||
+        *inside->getReturnType()==*Type::ULONG
+    ;
+
+    switch (op) {
+        case OperatorFunInvokeExpression::Operator::PLUS:
+        case OperatorFunInvokeExpression::Operator::MINUS:
+        case OperatorFunInvokeExpression::Operator::TIMES:
+        case OperatorFunInvokeExpression::Operator::DIV:
+        case OperatorFunInvokeExpression::Operator::MOD:
+        case OperatorFunInvokeExpression::Operator::XOR:
+        case OperatorFunInvokeExpression::Operator::BIT_OR:
+        case OperatorFunInvokeExpression::Operator::BIT_AND:
+        case OperatorFunInvokeExpression::Operator::SHR:
+        case OperatorFunInvokeExpression::Operator::SHL:
+        case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
+        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+        case OperatorFunInvokeExpression::Operator::LESS:
+        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+        case OperatorFunInvokeExpression::Operator::GREATER:
+        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:{
+            argSize=Type::getSize((*ex->getArgs())[0]->getReturnType().get());
+            addInstructionToConvertBetweenDataTypes(insideSize, argSize, isUnsigned);
+        }
+        default:{}
+    }
 
     auto returnType=ex->getReturnType().get();
     auto size=Type::getSize(returnType);
@@ -794,7 +831,9 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
         *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push (inside expression) to the stack
         arg->accept(this);
     }
-    
+
+    addInstructionToConvertBetweenDataTypes(argSize, insideSize, isUnsigned);
+
     // TODO: optimize for imms
 
     switch(op){
@@ -845,49 +884,85 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     }
 
     *currentAsmLabel+=Assembler::pop(Assembler::RCX());  // pop (inside expression) into RCX
-    *currentAsmLabel+=Assembler::cmp(Assembler::RCX(), Assembler::RAX());
-    auto AX=Assembler::RAX(Assembler::AsmInstruction::BYTE);
 
-    auto isUnsigned=
-        *inside->getReturnType()==*Type::UBYTE
-        ||
-        *inside->getReturnType()==*Type::UINT
-        ||
-        *inside->getReturnType()==*Type::ULONG
-    ;
+    auto greaterSize=(argSize>=insideSize)?argSize:insideSize;
+    *currentAsmLabel+=Assembler::cmp(Assembler::RCX(greaterSize), Assembler::RAX(greaterSize));
+
+    auto AL=Assembler::RAX(Assembler::AsmInstruction::BYTE);
 
     switch (op) {
         case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
-            *currentAsmLabel+=Assembler::setz(AX);
+            *currentAsmLabel+=Assembler::setz(AL);
             break;
         case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
-            *currentAsmLabel+=Assembler::setnz(AX);
+            *currentAsmLabel+=Assembler::setnz(AL);
             break;
         case OperatorFunInvokeExpression::Operator::LESS:
             if(isUnsigned)
-                *currentAsmLabel+=Assembler::setb(AX);
+                *currentAsmLabel+=Assembler::setb(AL);
             else
-                *currentAsmLabel+=Assembler::setl(AX);
+                *currentAsmLabel+=Assembler::setl(AL);
             break;
         case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
             if(isUnsigned)
-                *currentAsmLabel+=Assembler::setbe(AX);
+                *currentAsmLabel+=Assembler::setbe(AL);
             else
-                *currentAsmLabel+=Assembler::setle(AX);
+                *currentAsmLabel+=Assembler::setle(AL);
             break;
         case OperatorFunInvokeExpression::Operator::GREATER:
             if(isUnsigned)
-                *currentAsmLabel+=Assembler::seta(AX);
+                *currentAsmLabel+=Assembler::seta(AL);
             else
-                *currentAsmLabel+=Assembler::setg(AX);
+                *currentAsmLabel+=Assembler::setg(AL);
             break;
         case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
             if(isUnsigned)
-                *currentAsmLabel+=Assembler::setae(AX);
+                *currentAsmLabel+=Assembler::setae(AL);
             else
-                *currentAsmLabel+=Assembler::setge(AX);
+                *currentAsmLabel+=Assembler::setge(AL);
             break;
         default:{}
     }
 
+}
+
+void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize, bool isUnsigned){
+    switch (toSize) {
+        case Assembler::AsmInstruction::QWORD:{
+            switch (fromSize) {
+                case Assembler::AsmInstruction::BYTE:
+                    *currentAsmLabel+=Assembler::cbw();
+                case Assembler::AsmInstruction::WORD:
+                    if(isUnsigned)
+                        *currentAsmLabel+=Assembler::cwd();
+                    else
+                        *currentAsmLabel+=Assembler::cwde();
+                case Assembler::AsmInstruction::DWORD:
+                    if(isUnsigned)
+                        *currentAsmLabel+=Assembler::cdq();
+                    else
+                        *currentAsmLabel+=Assembler::cdqe();
+            }
+            break;
+        }
+        case Assembler::AsmInstruction::DWORD:{
+            switch (fromSize) {
+                case Assembler::AsmInstruction::BYTE:
+                    *currentAsmLabel+=Assembler::cbw();
+                case Assembler::AsmInstruction::WORD:
+                    if(isUnsigned)
+                        *currentAsmLabel+=Assembler::cwd();
+                    else
+                        *currentAsmLabel+=Assembler::cwde();
+            }
+            break;
+        }
+        case Assembler::AsmInstruction::WORD:{
+            switch (fromSize) {
+                case Assembler::AsmInstruction::BYTE:
+                    *currentAsmLabel+=Assembler::cbw();
+            }
+            break;
+        }
+    }
 }
