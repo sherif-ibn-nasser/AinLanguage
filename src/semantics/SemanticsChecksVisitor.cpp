@@ -52,6 +52,10 @@ void SemanticsChecksVisitor::visit(FileScope* scope){
 void SemanticsChecksVisitor::visit(ClassScope* scope){
 
     if(
+        scope==Type::BYTE->getClassScope().get()
+        ||
+        scope==Type::UBYTE->getClassScope().get()
+        ||
         scope==Type::INT->getClassScope().get()
         ||
         scope==Type::UINT->getClassScope().get()

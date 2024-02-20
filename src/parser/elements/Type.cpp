@@ -6,6 +6,8 @@
 #include "StringClassScope.hpp"
 #include "BoolClassScope.hpp"
 #include "UnitClassScope.hpp"
+#include "ByteClassScope.hpp"
+#include "UByteClassScope.hpp"
 #include "IntClassScope.hpp"
 #include "UIntClassScope.hpp"
 #include "LongClassScope.hpp"
@@ -59,6 +61,8 @@ SharedWString Type::getName(){
 }
 
 SharedWString Type::UNIT_NAME=std::make_shared<std::wstring>(L"الوحدة");
+SharedWString Type::BYTE_NAME=std::make_shared<std::wstring>(L"بايت");
+SharedWString Type::UBYTE_NAME=std::make_shared<std::wstring>(L"بايت_م");
 SharedWString Type::INT_NAME=std::make_shared<std::wstring>(L"صحيح");
 SharedWString Type::UINT_NAME=std::make_shared<std::wstring>(L"صحيح_م");
 SharedWString Type::LONG_NAME=std::make_shared<std::wstring>(L"كبير");
@@ -80,6 +84,11 @@ SharedType Type::CHAR=std::make_shared<Type>(
     std::make_shared<CharClassScope>()
 );
 
+SharedType Type::BYTE=std::make_shared<Type>(
+    BYTE_NAME,
+    std::make_shared<ByteClassScope>()
+);
+
 SharedType Type::INT=std::make_shared<Type>(
     INT_NAME,
     std::make_shared<IntClassScope>()
@@ -93,6 +102,12 @@ SharedType Type::LONG=std::make_shared<Type>(
 SharedType Type::FLOAT=std::make_shared<Type>(
     FLOAT_NAME,
     std::make_shared<FloatClassScope>()
+);
+
+// بايت موجب
+SharedType Type::UBYTE=std::make_shared<Type>(
+    UBYTE_NAME,
+    std::make_shared<UByteClassScope>()
 );
 
 // صحيح موجب
@@ -128,7 +143,9 @@ std::shared_ptr<ArrayClassScope> Type::ARRAY_CLASS=std::make_shared<ArrayClassSc
 void Type::addBuiltInClassesTo(SharedFileScope fileScope) {
     auto builtInCLasses={
         UNIT,
-        INT,UINT,LONG,ULONG,
+        BYTE,UBYTE,
+        INT,UINT,
+        LONG,ULONG,
         FLOAT,DOUBLE,
         CHAR,STRING,
         BOOL
@@ -193,7 +210,7 @@ int Type::getSize(Type *type_ptr){
 
     auto type=*type_ptr;
 
-    if (type==*Type::BOOL)
+    if (type==*Type::BOOL||type==*Type::BYTE||type==*Type::UBYTE)
         return 1;
     
     if (type==*Type::CHAR||type==*Type::FLOAT||type==*Type::INT||type==*Type::UINT)

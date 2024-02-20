@@ -26,6 +26,8 @@ class BuiltInFunScope:public FunScope{
         std::function<void(Interpreter*)> invokeOnInterpreterFun;
         std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm;
         
+        static void addBuiltInFunctionsToByteClass();
+        static void addBuiltInFunctionsToUByteClass();
         static void addBuiltInFunctionsToIntClass();
         static void addBuiltInFunctionsToUIntClass();
         static void addBuiltInFunctionsToLongClass();
@@ -164,6 +166,16 @@ class BuiltInFunScope:public FunScope{
         );
 
         template <typename PrimitiveType>
+        static inline std::shared_ptr<BuiltInFunScope> getToByteFun(
+            std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+        );
+
+        template <typename PrimitiveType>
+        static inline std::shared_ptr<BuiltInFunScope> getToUByteFun(
+            std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+        );
+
+        template <typename PrimitiveType>
         static inline std::shared_ptr<BuiltInFunScope> getToIntFun(
             std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
         );
@@ -198,6 +210,8 @@ class BuiltInFunScope:public FunScope{
             std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
         );
 
+        static const inline auto BYTE_PARAM_NAME=L"_بايت";
+        static const inline auto UBYTE_PARAM_NAME=L"_بايت_م";
         static const inline auto INT_PARAM_NAME=L"رقم_صحيح";
         static const inline auto UINT_PARAM_NAME=L"رقم_صحيح_م";
         static const inline auto LONG_PARAM_NAME=L"رقم_كبير";
@@ -221,6 +235,8 @@ class BuiltInFunScope:public FunScope{
         static const inline auto READ_NAME=L"أدخل";
         static const inline auto PRINT_NAME=L"اظهر";
         static const inline auto PRINTLN_NAME=L"اظهر_";
+        static const inline auto TO_BYTE_NAME=L"كبايت";
+        static const inline auto TO_UBYTE_NAME=L"كبايت_م";
         static const inline auto TO_INT_NAME=L"كصحيح";
         static const inline auto TO_UINT_NAME=L"كصحيح_م";
         static const inline auto TO_LONG_NAME=L"ككبير";
@@ -336,7 +352,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getTimesFun(
         [=]{
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
-                (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                (*returnType==*Type::UBYTE||*returnType==*Type::UINT||*returnType==*Type::ULONG)
                     ?Assembler::mul(Assembler::RCX())
                     :Assembler::imul(Assembler::RCX())
             };
@@ -366,7 +382,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getDivFun(
                 Assembler::zero(Assembler::RDX()),
                 Assembler::mov(Assembler::RCX(), Assembler::RAX()),
                 Assembler::pop(Assembler::RAX()), 
-                (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                (*returnType==*Type::UBYTE||*returnType==*Type::UINT||*returnType==*Type::ULONG)
                     ?Assembler::div(Assembler::RCX())
                     :idiv(Assembler::RCX())
             };
@@ -396,7 +412,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getModFun(
                 Assembler::zero(Assembler::RDX()),
                 Assembler::mov(Assembler::RCX(), Assembler::RAX()),
                 Assembler::pop(Assembler::RAX()), 
-                (*returnType==*Type::UINT||*returnType==*Type::ULONG)
+                (*returnType==*Type::UBYTE||*returnType==*Type::UINT||*returnType==*Type::ULONG)
                     ?Assembler::div(Assembler::RCX())
                     :idiv(Assembler::RCX()),
                 Assembler::mov(
@@ -671,6 +687,20 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getToAnotherTypeFun(
             interpreter->AX=std::make_shared<ReturnValue>(a);
         }
     );
+}
+
+template <typename PrimitiveType>
+inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getToByteFun(
+    std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+){
+    return getToAnotherTypeFun<PrimitiveType, IntValue>(classScope, TO_BYTE_NAME, Type::BYTE);
+}
+
+template <typename PrimitiveType>
+inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getToUByteFun(
+    std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+){
+    return getToAnotherTypeFun<PrimitiveType, IntValue>(classScope, TO_UBYTE_NAME, Type::UBYTE);
 }
 
 template <typename PrimitiveType>

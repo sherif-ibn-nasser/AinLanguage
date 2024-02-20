@@ -1,6 +1,7 @@
 #include "ExpressionParser.hpp"
 #include "AssignStatement.hpp"
 #include "BoolValue.hpp"
+#include "ByteValue.hpp"
 #include "CharValue.hpp"
 #include "ClassScope.hpp"
 #include "DoubleValue.hpp"
@@ -33,6 +34,7 @@
 #include "ThisFunInvokeExpression.hpp"
 #include "ThisVarAccessExpression.hpp"
 #include "Type.hpp"
+#include "UByteValue.hpp"
 #include "UIntValue.hpp"
 #include "ULongValue.hpp"
 #include "TokenIsNotAllowedHereException.hpp"
@@ -616,6 +618,16 @@ OperatorFunInvokeExpression::Operator ExpressionParser::getBinOpFromToken(LexerT
 
 SharedIValue ExpressionParser::parseNumberValue(NumberToken::NUMBER_TYPE numType,std::wstring value) {
     switch(numType){
+        case NumberToken::BYTE:
+            return std::make_shared<ByteValue>(
+                std::stoi(value)
+            );
+
+        case NumberToken::UNSIGNED_BYTE:
+            return std::make_shared<UByteValue>(
+                std::stoul(value)
+            );
+
         case NumberToken::INT:
             return std::make_shared<IntValue>(
                 std::stoi(value)

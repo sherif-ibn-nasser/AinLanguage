@@ -49,11 +49,13 @@ add_library(ainsrc
     src/expression/OperatorFunInvokeExpression.cpp
     src/expression/NewObjectExpression.cpp
     src/expression/value/LongValue.cpp
+    src/expression/value/ByteValue.cpp
     src/expression/value/FloatValue.cpp
     src/expression/value/IValue.cpp
     src/expression/value/IntValue.cpp
     src/expression/value/UnitValue.cpp
     src/expression/value/DoubleValue.cpp
+    src/expression/value/UByteValue.cpp
     src/expression/value/CharValue.cpp
     src/expression/value/RefValue.cpp
     src/expression/value/BoolValue.cpp

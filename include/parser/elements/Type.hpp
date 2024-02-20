@@ -13,6 +13,8 @@ class Type{
         bool operator==(const Type& type)const;
         bool operator!=(const Type& type)const;
         static SharedWString UNIT_NAME;
+        static SharedWString BYTE_NAME;
+        static SharedWString UBYTE_NAME;
         static SharedWString INT_NAME;
         static SharedWString UINT_NAME;
         static SharedWString LONG_NAME;
@@ -25,6 +27,8 @@ class Type{
         static SharedWString ARRAY_NAME;
         static SharedType UNIT;
         static SharedType CHAR;
+        static SharedType BYTE;
+        static SharedType UBYTE;
         static SharedType INT;
         static SharedType LONG;
         static SharedType FLOAT;

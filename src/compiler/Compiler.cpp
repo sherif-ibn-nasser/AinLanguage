@@ -18,6 +18,7 @@
 #include "PackageScope.hpp"
 #include "SharedPtrTypes.hpp"
 #include "StmListScope.hpp"
+#include "StringValue.hpp"
 #include "Type.hpp"
 #include "ULongValue.hpp"
 #include "Variable.hpp"
@@ -27,7 +28,6 @@
 #include <string>
 
 void Compiler::visit(PackageScope* scope){
-
     for(auto fileIterator:scope->getFiles()){
         fileIterator.second->accept(this);
     }
@@ -150,8 +150,6 @@ void Compiler::visit(VarStm* stm){
 
     if (currentAsmLabel==initAsmLabel&&!isGlobal)
         return;
-
-    
 
     auto varSize=getVariableSize(var);
     auto offset=offsets[var];
@@ -409,6 +407,7 @@ void Compiler::visit(LiteralExpression* ex){
     // TODO: strings
     auto value=ex->getValue();
     Assembler::AsmOperand imm;
+
     if(auto boolVal=std::dynamic_pointer_cast<BoolValue>(value)){
         if(!boolVal->getValue()){
             *currentAsmLabel+=Assembler::zero(Assembler::RAX());
@@ -416,28 +415,13 @@ void Compiler::visit(LiteralExpression* ex){
         }
         imm=Assembler::imm(L"1");
     }
+
     else if(auto charVal=std::dynamic_pointer_cast<CharValue>(value)){
         auto val=charVal->toString();
         if(val==L"\n")
             imm=Assembler::imm(L"0x0a");
         else
             imm=Assembler::imm(L"\'"+val+L"\'");
-    }
-    
-    else if(auto intVal=std::dynamic_pointer_cast<IntValue>(value)){
-        imm=Assembler::imm(intVal->toString());
-    }
-    
-    else if(auto uintVal=std::dynamic_pointer_cast<UIntValue>(value)){
-        imm=Assembler::imm(uintVal->toString());
-    }
-
-    else if(auto longVal=std::dynamic_pointer_cast<LongValue>(value)){
-        imm=Assembler::imm(longVal->toString());
-    }
-    
-    else if(auto ulongVal=std::dynamic_pointer_cast<ULongValue>(value)){
-        imm=Assembler::imm(ulongVal->toString());
     }
 
     else if(auto floatVal=std::dynamic_pointer_cast<FloatValue>(value)){
@@ -458,8 +442,13 @@ void Compiler::visit(LiteralExpression* ex){
         imm=Assembler::imm(std::to_wstring(data.lVal));
     }
 
-    // TODO: strings
+    else if(auto strVal=std::dynamic_pointer_cast<StringValue>(value)){
+        // TODO
+    }
 
+    else
+        imm=Assembler::imm(value->toString());
+    
     *currentAsmLabel+=Assembler::mov(Assembler::RAX(),imm);
 }
 
@@ -860,6 +849,8 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     auto AX=Assembler::RAX(Assembler::AsmInstruction::BYTE);
 
     auto isUnsigned=
+        *inside->getReturnType()==*Type::UBYTE
+        ||
         *inside->getReturnType()==*Type::UINT
         ||
         *inside->getReturnType()==*Type::ULONG

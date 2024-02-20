@@ -6,12 +6,14 @@ class NumberToken:public LiteralToken
 {
     public:
         enum NUMBER_TYPE : int{
-            INT=0,
-            UNSIGNED_INT=1,
-            LONG=2,
-            UNSIGNED_LONG=3,
-            DOUBLE=4,
-            FLOAT=5,
+            BYTE=0,
+            UNSIGNED_BYTE=1,
+            INT=2,
+            UNSIGNED_INT=3,
+            LONG=4,
+            UNSIGNED_LONG=5,
+            FLOAT=6,
+            DOUBLE=7,
         };
         NumberToken(NUMBER_TYPE numberType,std::wstring val);
         NUMBER_TYPE getNumberType();

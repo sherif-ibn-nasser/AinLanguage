@@ -408,11 +408,11 @@ NumberToken::NUMBER_TYPE LexerLine::skipAfterDecDigitArray(){
         throw UnsupportedTokenException(lineNumber,getCurrentTokenVal()+stopChar); // append stopChar
     
     // numType is int
-    // checking for stopChar after unsigned and long types is in getIntNumberToken
-    if(stopChar!=L'u'&&stopChar!=L'l')
+    // checking for stopChar after unsigned, byte and long types is in getIntNumberToken
+    if(stopChar!=L'u'&&stopChar!=L'l'&&stopChar!=L'b')
         throw InvalidIdentifierNameException(lineNumber,getCurrentTokenVal()+stopChar); // append stopChar
     
-    // Nothing happened, numType will be unsigned int, unsigned long or long in getIntNumberToken
+    // Nothing happened, numType will be unsigned byte, unsigned int, unsigned long, byte or long in getIntNumberToken
     return numType;
 }
 
@@ -509,6 +509,21 @@ void LexerLine::getIntNumberToken(
         :(num<=std::numeric_limits<long long>::max())
         ?NumberToken::LONG
         :throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+    }
+
+    auto isByte=charAt(tokenEndIndex+1)==L'B'||charAt(tokenEndIndex+1)==L'b';
+    if(isByte){
+        if(isUnsigned){
+            *numType=NumberToken::UNSIGNED_BYTE;
+            if(num>std::numeric_limits<unsigned char>::max())
+                throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+        }
+        else {
+            *numType=NumberToken::BYTE;
+            if(num>std::numeric_limits<char>::max())
+                throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+        }
+        tokenEndIndex++; // append 'B' symbol to token
     }
 
     auto isLong=charAt(tokenEndIndex+1)==L'L'||charAt(tokenEndIndex+1)==L'l';

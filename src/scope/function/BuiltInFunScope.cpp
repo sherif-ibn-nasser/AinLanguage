@@ -3,6 +3,7 @@
 #include "Assembler.hpp"
 #include "BoolClassScope.hpp"
 #include "BoolValue.hpp"
+#include "ByteValue.hpp"
 #include "CharClassScope.hpp"
 #include "CharValue.hpp"
 #include "ContainsKufrOrUnsupportedCharacterException.hpp"
@@ -24,6 +25,9 @@
 #include "StringClassScope.hpp"
 #include "StringValue.hpp"
 #include "Type.hpp"
+#include "ByteClassScope.hpp"
+#include "UByteClassScope.hpp"
+#include "UByteValue.hpp"
 #include "UIntClassScope.hpp"
 #include "UIntValue.hpp"
 #include "ULongClassScope.hpp"
@@ -263,7 +267,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto WRITE_CHAR_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
-        Type::LONG,
+        Type::UNIT,
         std::vector<std::pair<std::wstring, SharedType>>{
             {ADDRESS_PARAM_NAME,Type::LONG},
             {CHAR_PARAM_NAME,Type::CHAR},
@@ -281,9 +285,29 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
+    auto WRITE_BYTE_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::UNIT,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {BYTE_PARAM_NAME,Type::BYTE},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::mov(Assembler::RDI(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RSP())),
+                Assembler::add(Assembler::RSP(), Assembler::imm(L"1")),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI(Assembler::AsmInstruction::BYTE)),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
+        }
+    );
+
     auto WRITE_LONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
-        Type::LONG,
+        Type::UNIT,
         std::vector<std::pair<std::wstring, SharedType>>{
             {ADDRESS_PARAM_NAME,Type::LONG},
             {LONG_PARAM_NAME,Type::LONG},
@@ -300,6 +324,22 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
+    auto READ_BYTE_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_BYTE_FROM_ADDRESS_NAME,
+        Type::BYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RAX()))
+            };
+        }
+    );
+
     auto READ_LONG_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
         READ_LONG_FROM_ADDRESS_NAME,
         Type::LONG,
@@ -312,25 +352,6 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             return{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::mov(Assembler::RAX(), Assembler::addressMov(Assembler::RAX()))
-            };
-        }
-    );
-
-    auto READ_BYTE_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
-        READ_BYTE_FROM_ADDRESS_NAME,
-        Type::LONG,
-        std::vector<std::pair<std::wstring, SharedType>>{
-            {ADDRESS_PARAM_NAME,Type::LONG},
-        },
-        [](Interpreter* interpreter){},
-        false,
-        []()->std::vector<Assembler::AsmInstruction>{
-            return{
-                Assembler::pop(Assembler::RAX()),
-                Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RAX())),
-                Assembler::cbw(),
-                Assembler::cwde(),
-                Assembler::cdqe()
             };
         }
     );
@@ -519,9 +540,10 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         SYSCALL6,
         BRK,
         WRITE_CHAR_TO_ADDRESS,
+        WRITE_BYTE_TO_ADDRESS,
         WRITE_LONG_TO_ADDRESS,
-        READ_LONG_FROM_ADDRESS,
         READ_BYTE_FROM_ADDRESS,
+        READ_LONG_FROM_ADDRESS,
         READ,READ_LINE,
         PRINT_INT,PRINTLN_INT,
         PRINT_UINT,PRINTLN_UINT,
@@ -541,6 +563,8 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 }
 
 void BuiltInFunScope::addBuiltInFunctionsToBuiltInClasses() {
+    addBuiltInFunctionsToByteClass();
+    addBuiltInFunctionsToUByteClass();
     addBuiltInFunctionsToIntClass();
     addBuiltInFunctionsToUIntClass();
     addBuiltInFunctionsToLongClass();
@@ -554,11 +578,19 @@ void BuiltInFunScope::addBuiltInFunctionsToBuiltInClasses() {
     addBuiltInFunctionsToArrayClass();
 }
 
-void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
+void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
 
-    auto classScope=std::dynamic_pointer_cast<IntClassScope>(Type::INT->getClassScope());
+    auto classScope=std::dynamic_pointer_cast<ByteClassScope>(Type::BYTE->getClassScope());
     
     using PrimitiveType=int;
+
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
 
     auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, IntValue>(
         classScope,
@@ -586,6 +618,13 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, IntValue>(
@@ -616,6 +655,13 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE
     );
 
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, IntValue>(
         classScope,
         Type::INT,
@@ -642,6 +688,13 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto DIV_INT=getDivFun<PrimitiveType, IntValue, IntValue>(
@@ -672,6 +725,13 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE
     );
 
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto MOD_INT=getModFun<PrimitiveType, IntValue, IntValue>(
         classScope,
         Type::INT,
@@ -684,6 +744,510 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG,
         LONG_PARAM_NAME,
         Type::LONG
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
+        classScope,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto COMPARE_TO_LONG=getCompareToFun<PrimitiveType, LongValue>(
+        classScope,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto COMPARE_TO_FLOAT=getCompareToFun<PrimitiveType, FloatValue>(
+        classScope,
+        FLOAT_PARAM_NAME,
+        Type::FLOAT
+    );
+
+    auto COMPARE_TO_DOUBLE=getCompareToFun<PrimitiveType, DoubleValue>(
+        classScope,
+        DOUBLE_PARAM_NAME,
+        Type::DOUBLE
+    );
+
+    auto EQUALS=getEqualsFun<PrimitiveType>(
+        classScope,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto UNARY_PLUS=getUnaryPlusFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto UNARY_MINUS=getUnaryMinusFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto INC=getIncFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto DEC=getDecFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_INT=getToIntFun<PrimitiveType>(classScope);
+
+    auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
+
+    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+
+    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+
+    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
+
+    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
+
+    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+
+    auto TO_CHAR=std::make_shared<BuiltInFunScope>(
+        TO_CHAR_NAME,
+        Type::CHAR,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){
+            auto val=std::dynamic_pointer_cast<ByteValue>(interpreter->AX)->getValue();
+            wchar_t charValue=static_cast<wchar_t>(val);
+            if(isKufrOrUnsupportedCharacter(charValue))
+                // TODO: show line number
+                throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
+            interpreter->AX=std::make_shared<CharValue>(charValue);
+        }
+    );
+
+    auto SHR=getShrFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto SHL=getShlFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto BIT_AND=getBitAndFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME
+    );
+
+    auto XOR=getXorFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME
+    );
+
+    auto BIT_OR=getBitOrFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME
+    );
+
+    auto BIT_NOT=getBitNotFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE
+    );
+
+    auto funs={
+        PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        EQUALS,
+        UNARY_PLUS,UNARY_MINUS,
+        INC,DEC,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,TO_STRING,TO_CHAR,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+    };
+
+    auto publicFuns=classScope->getPublicFunctions();
+    for(auto fun:funs){
+        (*publicFuns)[fun->getDecl()->toString()]=fun;
+    }
+    
+}
+
+void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
+
+    auto classScope=std::dynamic_pointer_cast<UByteClassScope>(Type::UBYTE->getClassScope());
+    
+    using PrimitiveType=unsigned int;
+
+
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto PLUS_ULONG=getPlusFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto MINUS_ULONG=getMinusFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto TIMES_ULONG=getTimesFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto DIV_ULONG=getDivFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MOD_UINT=getModFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto MOD_ULONG=getModFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
+        classScope,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto COMPARE_TO_ULONG=getCompareToFun<PrimitiveType, ULongValue>(
+        classScope,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto EQUALS=getEqualsFun<PrimitiveType>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto INC=getIncFun<PrimitiveType,UIntValue>(classScope,Type::UBYTE);
+
+    auto DEC=getDecFun<PrimitiveType,UIntValue>(classScope,Type::UBYTE);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_INT=getToIntFun<PrimitiveType>(classScope);
+
+    auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
+
+    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+
+    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+
+    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
+
+    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
+
+    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+
+    auto SHR=getShrFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
+
+    auto SHL=getShlFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
+
+    auto BIT_AND=getBitAndFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME
+    );
+
+    auto XOR=getXorFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME
+    );
+
+    auto BIT_OR=getBitOrFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME
+    );
+
+    auto BIT_NOT=getBitNotFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE
+    );
+
+    auto funs={
+        PLUS_UBYTE,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        EQUALS,
+        INC,DEC,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,TO_STRING,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+    };
+
+    auto publicFuns=classScope->getPublicFunctions();
+    for(auto fun:funs){
+        (*publicFuns)[fun->getDecl()->toString()]=fun;
+    }
+    
+}
+
+void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
+
+    auto classScope=std::dynamic_pointer_cast<IntClassScope>(Type::INT->getClassScope());
+    
+    using PrimitiveType=int;
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto PLUS_LONG=getPlusFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto PLUS_FLOAT=getPlusFun<PrimitiveType, FloatValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        FLOAT_PARAM_NAME,
+        Type::FLOAT
+    );
+
+    auto PLUS_DOUBLE=getPlusFun<PrimitiveType, DoubleValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        DOUBLE_PARAM_NAME,
+        Type::DOUBLE
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto MINUS_LONG=getMinusFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto MINUS_FLOAT=getMinusFun<PrimitiveType, FloatValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        FLOAT_PARAM_NAME,
+        Type::FLOAT
+    );
+
+    auto MINUS_DOUBLE=getMinusFun<PrimitiveType, DoubleValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        DOUBLE_PARAM_NAME,
+        Type::DOUBLE
+    );
+
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto TIMES_LONG=getTimesFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto TIMES_FLOAT=getTimesFun<PrimitiveType, FloatValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        FLOAT_PARAM_NAME,
+        Type::FLOAT
+    );
+
+    auto TIMES_DOUBLE=getTimesFun<PrimitiveType, DoubleValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        DOUBLE_PARAM_NAME,
+        Type::DOUBLE
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto DIV_INT=getDivFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto DIV_LONG=getDivFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto DIV_FLOAT=getDivFun<PrimitiveType, FloatValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        FLOAT_PARAM_NAME,
+        Type::FLOAT
+    );
+
+    auto DIV_DOUBLE=getDivFun<PrimitiveType, DoubleValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        DOUBLE_PARAM_NAME,
+        Type::DOUBLE
+    );
+
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MOD_INT=getModFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto MOD_LONG=getModFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
@@ -723,6 +1287,10 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
     auto INC=getIncFun<PrimitiveType,IntValue>(classScope,Type::INT);
 
     auto DEC=getDecFun<PrimitiveType,IntValue>(classScope,Type::INT);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
@@ -780,16 +1348,16 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
     );
 
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        MOD_INT,MOD_LONG,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING,TO_CHAR,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
@@ -807,6 +1375,13 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     
     using PrimitiveType=unsigned int;
 
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
     auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, UIntValue>(
         classScope,
         Type::UINT,
@@ -819,6 +1394,13 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
     );
 
     auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, UIntValue>(
@@ -835,6 +1417,13 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG
     );
 
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
     auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, UIntValue>(
         classScope,
         Type::UINT,
@@ -847,6 +1436,13 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
     );
 
     auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, UIntValue>(
@@ -863,6 +1459,13 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG
     );
 
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
     auto MOD_UINT=getModFun<PrimitiveType, UIntValue, UIntValue>(
         classScope,
         Type::UINT,
@@ -875,6 +1478,12 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, UByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
     );
 
     auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
@@ -898,6 +1507,10 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     auto INC=getIncFun<PrimitiveType,UIntValue>(classScope,Type::UINT);
 
     auto DEC=getDecFun<PrimitiveType,UIntValue>(classScope,Type::UINT);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
@@ -941,15 +1554,15 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     );
 
     auto funs={
-        PLUS_UINT,PLUS_ULONG,
-        MINUS_UINT,MINUS_ULONG,
-        TIMES_UINT,TIMES_ULONG,
-        DIV_UINT,DIV_ULONG,
-        MOD_UINT,MOD_ULONG,
-        COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        PLUS_UBYTE,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_UINT,COMPARE_TO_ULONG,
         EQUALS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
@@ -966,6 +1579,13 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
     auto classScope=std::dynamic_pointer_cast<LongClassScope>(Type::LONG->getClassScope());
     
     using PrimitiveType=long long;
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
 
     auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, LongValue>(
         classScope,
@@ -993,6 +1613,13 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, LongValue>(
@@ -1023,6 +1650,13 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE
     );
 
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, LongValue>(
         classScope,
         Type::LONG,
@@ -1049,6 +1683,13 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto DIV_INT=getDivFun<PrimitiveType, IntValue, LongValue>(
@@ -1079,6 +1720,13 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE
     );
 
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto MOD_INT=getModFun<PrimitiveType, IntValue, LongValue>(
         classScope,
         Type::LONG,
@@ -1091,6 +1739,12 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG,
         LONG_PARAM_NAME,
         Type::LONG
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
@@ -1130,6 +1784,10 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
     auto INC=getIncFun<PrimitiveType,LongValue>(classScope,Type::LONG);
 
     auto DEC=getDecFun<PrimitiveType,LongValue>(classScope,Type::LONG);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
@@ -1173,16 +1831,16 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
     );
 
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        MOD_INT,MOD_LONG,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
@@ -1200,6 +1858,13 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     
     using PrimitiveType=unsigned long long;
 
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
     auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, ULongValue>(
         classScope,
         Type::ULONG,
@@ -1212,6 +1877,13 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
     );
 
     auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, ULongValue>(
@@ -1228,6 +1900,13 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG
     );
 
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
     auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, ULongValue>(
         classScope,
         Type::ULONG,
@@ -1240,6 +1919,13 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
     );
 
     auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, ULongValue>(
@@ -1256,6 +1942,13 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG
     );
 
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
     auto MOD_UINT=getModFun<PrimitiveType, UIntValue, ULongValue>(
         classScope,
         Type::ULONG,
@@ -1268,6 +1961,12 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, UByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
     );
 
     auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
@@ -1291,6 +1990,10 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     auto INC=getIncFun<PrimitiveType,ULongValue>(classScope,Type::ULONG);
 
     auto DEC=getDecFun<PrimitiveType,ULongValue>(classScope,Type::ULONG);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
@@ -1334,15 +2037,15 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     );
 
     auto funs={
-        PLUS_UINT,PLUS_ULONG,
-        MINUS_UINT,MINUS_ULONG,
-        TIMES_UINT,TIMES_ULONG,
-        DIV_UINT,DIV_ULONG,
-        MOD_UINT,MOD_ULONG,
-        COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        PLUS_UBYTE,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_UINT,COMPARE_TO_ULONG,
         EQUALS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
@@ -1359,6 +2062,13 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
     auto classScope=std::dynamic_pointer_cast<FloatClassScope>(Type::FLOAT->getClassScope());
     
     using PrimitiveType=float;
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
 
     auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, FloatValue>(
         classScope,
@@ -1386,6 +2096,13 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, FloatValue>(
@@ -1416,6 +2133,13 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE
     );
 
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, FloatValue>(
         classScope,
         Type::FLOAT,
@@ -1444,6 +2168,13 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE
     );
 
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, FloatValue>(
+        classScope,
+        Type::FLOAT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto DIV_INT=getDivFun<PrimitiveType, IntValue, FloatValue>(
         classScope,
         Type::FLOAT,
@@ -1470,6 +2201,12 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
@@ -1510,6 +2247,10 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
 
     auto DEC=getDecFun<PrimitiveType,FloatValue>(classScope,Type::FLOAT);
 
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
@@ -1525,15 +2266,15 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
     auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
 
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        COMPARE_TO_BYTE,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING
     };
 
@@ -1549,6 +2290,13 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
     auto classScope=std::dynamic_pointer_cast<DoubleClassScope>(Type::DOUBLE->getClassScope());
     
     using PrimitiveType=long double;
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
 
     auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, DoubleValue>(
         classScope,
@@ -1576,6 +2324,13 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, DoubleValue>(
@@ -1606,6 +2361,13 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE
     );
 
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, DoubleValue>(
         classScope,
         Type::DOUBLE,
@@ -1634,6 +2396,13 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE
     );
 
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, DoubleValue>(
+        classScope,
+        Type::DOUBLE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
     auto DIV_INT=getDivFun<PrimitiveType, IntValue, DoubleValue>(
         classScope,
         Type::DOUBLE,
@@ -1660,6 +2429,12 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         DOUBLE_PARAM_NAME,
         Type::DOUBLE
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
@@ -1700,6 +2475,10 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
 
     auto DEC=getDecFun<PrimitiveType,DoubleValue>(classScope,Type::DOUBLE);
 
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
@@ -1715,15 +2494,15 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
     auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
 
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        COMPARE_TO_BYTE,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING
     };
 
@@ -1941,6 +2720,43 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
         true
     );
 
+    auto TO_BYTE=std::make_shared<BuiltInFunScope>(
+        TO_BYTE_NAME,
+        Type::BYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){
+            auto val=interpreter->AX->toString();
+            try{
+                auto value=std::stoi(val);
+                if (value>std::numeric_limits<char>().max()||value<std::numeric_limits<char>().min())
+                    throw NumberFormatException(val);
+                
+                interpreter->AX=std::make_shared<ByteValue>(value);
+            }catch(std::exception e){
+                throw NumberFormatException(val);
+            }
+        }
+    );
+
+    auto TO_UBYTE=std::make_shared<BuiltInFunScope>(
+        TO_UBYTE_NAME,
+        Type::UBYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){
+            auto val=interpreter->AX->toString();
+            try{
+                auto value=std::stoull(val);
+
+                if (value>std::numeric_limits<unsigned char>().max())
+                    throw NumberFormatException(val);
+                
+                interpreter->AX=std::make_shared<ByteValue>(value);
+            }catch(std::exception e){
+                throw NumberFormatException(val);
+            }
+        }
+    );
+
     auto TO_INT=std::make_shared<BuiltInFunScope>(
         TO_INT_NAME,
         Type::INT,
@@ -2048,7 +2864,9 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
     auto funs={
         PLUS_STRING,PLUS_CHAR,
         EQUALS,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_BYTE,TO_UBYTE,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
         TO_STRING
     };
