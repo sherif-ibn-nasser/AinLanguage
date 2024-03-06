@@ -61,7 +61,7 @@ void Compiler::visit(FunScope* scope){
     }
 
     else if (parentClass){
-        label=L"method"+std::to_wstring(methodLabelsSize);
+        label=L"method"+std::to_wstring(++methodLabelsSize);
         comment=L"دالة "+parentClass->getName()+L"::"+decl->toString();
     }
 
@@ -370,10 +370,11 @@ void Compiler::visit(NewObjectExpression* ex){
 
 void Compiler::visit(NewArrayExpression* ex){
     addAinAllocAsm();
+    // TODO
 }
 
 void Compiler::visit(LiteralExpression* ex){
-    // TODO: strings
+
     auto value=ex->getValue();
     Assembler::AsmOperand imm;
 
@@ -479,7 +480,11 @@ void Compiler::visit(NonStaticVarAccessExpression* ex){
 }
 
 void Compiler::visit(NonStaticFunInvokeExpression* ex){
-    // TODO    
+    if(auto builtIn=std::dynamic_pointer_cast<BuiltInFunScope>(ex->getFun())){
+        // TODO: invokeNonStaticBuiltInFun(ex);
+        return;
+    }
+    invokeNonStaticFun(ex);
 }
 
 void Compiler::visit(OperatorFunInvokeExpression* ex){
@@ -487,6 +492,7 @@ void Compiler::visit(OperatorFunInvokeExpression* ex){
         invokeBuiltInOpFun(ex);
         return;
     }
+    // TODO
 }
 
 void Compiler::visit(SetOperatorExpression* ex){
@@ -527,7 +533,7 @@ void Compiler::visit(ThisVarAccessExpression* ex){
 }
 
 void Compiler::visit(ThisFunInvokeExpression* ex){
-    // TODO    
+    callFunAsm(ex->getFun().get(),ex->getArgs());
 }
 
 std::wstring Compiler::getAssemblyFile(){
@@ -1016,4 +1022,16 @@ void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args){
     Assembler::removeReservedSpaceFromStack(argsSize);
 
     // The returned address is on RAX
+}
+
+void Compiler::invokeNonStaticFun(NonStaticFunInvokeExpression* ex){
+    *currentAsmLabel+=Assembler::push(Assembler::RBX());
+
+    ex->getInside()->accept(this);
+
+    *currentAsmLabel+=Assembler::mov(Assembler::RBX(),Assembler::RAX());
+
+    callFunAsm(ex->getFun().get(), ex->getArgs());
+
+    *currentAsmLabel+=Assembler::pop(Assembler::RBX());
 }

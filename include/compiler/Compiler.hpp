@@ -84,6 +84,8 @@ class Compiler:public ASTVisitor{
 
         void callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args);
 
+        void invokeNonStaticFun(NonStaticFunInvokeExpression* ex);
+
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;
