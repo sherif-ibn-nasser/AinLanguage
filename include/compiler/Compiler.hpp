@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include "ASTVisitor.hpp"
@@ -62,10 +63,13 @@ class Compiler:public ASTVisitor{
 
         std::unordered_map<Variable*, void*> inUseGlobalVariables; // The global variable that are accessed in the user code, we count them to optimize the asm
 
+        FunScope* AIN_ALLOC=NULL;
+
         Assembler::AsmLabel* currentAsmLabel;
         Assembler::AsmLabel* startAsmLabel;
         Assembler::AsmLabel* initAsmLabel;
         
+        void addAinAllocAsm();
         int getVariableSize(Variable* var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
         void optimizeConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");
@@ -77,6 +81,8 @@ class Compiler:public ASTVisitor{
         void invokeBuiltInOpFun(OperatorFunInvokeExpression* ex);
 
         void addInstructionToConvertBetweenDataTypes(int fromSize, int toSize, bool isUnsigned);
+
+        void callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args);
 
     public:
         void visit(PackageScope* scope)override;

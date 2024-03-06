@@ -23,9 +23,12 @@
 #include "ULongValue.hpp"
 #include "Variable.hpp"
 #include "WhileStatement.hpp"
+#include "BuiltInFilePaths.hpp"
+#include "string_helper.hpp"
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <vector>
 
 void Compiler::visit(PackageScope* scope){
     for(auto fileIterator:scope->getFiles()){
@@ -41,7 +44,7 @@ void Compiler::visit(FileScope* scope){
 }
 
 void Compiler::visit(ClassScope* scope){
-    // TODO    
+    scope->getVarsInitStmList()->accept(this);
 }
 
 void Compiler::visit(FunScope* scope){
@@ -102,11 +105,7 @@ void Compiler::visit(FunScope* scope){
     /* TODO: The following code should be removed after doing data-flow analysis*/
 
     if(isConstructor)
-        *currentAsmLabel+=
-            Assembler::mov(
-                Assembler::RAX(),
-                Assembler::addressMov(Assembler::RBX())
-            );
+        *currentAsmLabel+=Assembler::mov(Assembler::RAX(),Assembler::RBX());
 
     else if(*scope->getReturnType()==*Type::UNIT)
         *currentAsmLabel+=Assembler::zero(Assembler::RAX());
@@ -344,63 +343,33 @@ void Compiler::visit(VarAccessExpression* ex){
 
 void Compiler::visit(FunInvokeExpression* ex){
 
-    auto fun=ex->getFun().get();
-    auto args=ex->getArgs();
-    auto params=fun->getParamsFromLocals();
-    auto paramsDecl=fun->getDecl()->params;
-    auto argsSize=getVariablesSize(params);
+    callFunAsm(
+        ex->getFun().get(),
+        ex->getArgs()
+    );
 
-    *currentAsmLabel+=Assembler::reserveSpaceOnStack(argsSize); // for args
-
-    auto offset=argsSize;
-
-    for(auto i=0;i<args->size();i++){
-        auto argEx=(*args)[i];
-        argEx->accept(this);
-        auto argSize=Type::getSize(argEx->getReturnType().get());
-        offset-=argSize;
-        auto comment=L"مُعامِل "+*(*paramsDecl)[i]->name;
-        *currentAsmLabel+=
-            Assembler::mov(
-                Assembler::addressMov(Assembler::RSP(), offset),
-                Assembler::RAX(argSize),
-                Assembler::AsmInstruction::IMPLICIT,
-                comment
-            );
-    }
-
-    if (labelsAsm.find(fun)==labelsAsm.end())
-        ex->getFun()->accept(this);
-
-    if (dynamic_cast<BuiltInFunScope*>(fun))
-        return; // it will pop from the stack automaticaly
-
-    auto funNameAsm=labelsAsm[fun].label;
-    auto decl=fun->getDecl();
-    std::wstring comment;
-
-    if(auto parentClass=BaseScope::toClassScope(fun->getParentScope()))
-        comment=L"استدعاء دالة "+parentClass->getName()+L"::"+decl->toString();
-    else
-        comment=L"استدعاء دالة "+decl->toString();
-
-    *currentAsmLabel+=
-        Assembler::call(
-            Assembler::AsmOperand{.type=Assembler::AsmOperand::LABEL, .value=funNameAsm},
-            comment
-        );
-
-    Assembler::removeReservedSpaceFromStack(argsSize);
-
-    // The return value is stored in rax
 }
 
 void Compiler::visit(NewObjectExpression* ex){
-    // TODO    
+    
+    addAinAllocAsm();
+
+    auto size=ex->getReturnType()->getClassScope()->getSize();
+    *currentAsmLabel+=Assembler::push(Assembler::imm(std::to_wstring(size))); // The size arg
+    *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label)); // call ainalloc
+    *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // The size arg
+    *currentAsmLabel+=Assembler::push(Assembler::RBX()); // The old address
+    *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX()); // The new address
+
+    callFunAsm(
+        ex->getConstructor().get(),
+        ex->getArgs()
+    );
+
 }
 
 void Compiler::visit(NewArrayExpression* ex){
-    // TODO    
+    addAinAllocAsm();
 }
 
 void Compiler::visit(LiteralExpression* ex){
@@ -965,4 +934,86 @@ void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize,
             break;
         }
     }
+}
+
+void Compiler::addAinAllocAsm(){
+
+    if(AIN_ALLOC)
+        return;
+
+    auto decl=FunDecl(
+        std::make_shared<std::wstring>(L"احجز"),
+        Type::UNIT,
+        std::make_shared<bool>(false),
+        std::make_shared<std::vector<SharedFunParam>>(
+            std::vector{
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"الحجم_بالبايت"),
+                    Type::LONG
+                )
+            }
+        )
+    );
+
+    AIN_ALLOC=PackageScope::AIN_PACKAGE
+        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findPublicFunction(decl.toString())
+        .get();
+
+    if(!AIN_ALLOC)
+        throw; // TODO: lib not found error
+
+    if(labelsAsm.find(AIN_ALLOC)!=labelsAsm.end())
+        return;
+
+    AIN_ALLOC->accept(this);
+}
+
+void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args){
+
+    auto params=fun->getParamsFromLocals();
+    auto paramsDecl=fun->getDecl()->params;
+    auto argsSize=getVariablesSize(params);
+
+    *currentAsmLabel+=Assembler::reserveSpaceOnStack(argsSize); // for args
+
+    auto offset=argsSize;
+
+    for(auto i=0;i<args->size();i++){
+        auto argEx=(*args)[i];
+        argEx->accept(this);
+        auto argSize=Type::getSize(argEx->getReturnType().get());
+        offset-=argSize;
+        auto comment=L"مُعامِل "+*(*paramsDecl)[i]->name;
+        *currentAsmLabel+=
+            Assembler::mov(
+                Assembler::addressMov(Assembler::RSP(), offset),
+                Assembler::RAX(argSize),
+                Assembler::AsmInstruction::IMPLICIT,
+                comment
+            );
+    }
+
+    if (labelsAsm.find(fun)==labelsAsm.end())
+        fun->accept(this);
+
+    if (dynamic_cast<BuiltInFunScope*>(fun))
+        return; // it will pop from the stack automaticaly
+
+    auto decl=fun->getDecl();
+    std::wstring comment=L"";
+
+    if(auto parentClass=BaseScope::toClassScope(fun->getParentScope()))
+        comment=L"استدعاء دالة "+parentClass->getName()+L"::"+decl->toString();
+    else
+        comment=L"استدعاء دالة "+decl->toString();
+
+    *currentAsmLabel+=Assembler::call(
+        Assembler::label(labelsAsm[fun].label),
+        comment
+    );
+
+    Assembler::removeReservedSpaceFromStack(argsSize);
+
+    // The returned address is on RAX
 }

@@ -38,6 +38,7 @@
 #include "VarsOffsetSetter.hpp"
 #include "ainio.hpp"
 #include "string_helper.hpp"
+#include "BuiltInFilePaths.hpp"
 
 auto typeParserProvider=[](SharedTokensIterator iterator,SharedBaseScope scope){
     return std::make_shared<TypeParser>(
@@ -162,6 +163,11 @@ int main(int argc, char * argv[]){
         filesStack[0]=argv[i];
         filesStack.push_back(temp);
     }
+
+    // TODO: Make them as ainstd lib
+    // FIXME: Add those files to path
+    filesStack.push_back(BuiltInFilePaths::AIN_MEM);
+    filesStack.push_back(BuiltInFilePaths::AIN_IO);
 
     try{
 
