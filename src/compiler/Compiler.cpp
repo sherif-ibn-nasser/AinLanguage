@@ -14,17 +14,21 @@
 #include "IntValue.hpp"
 #include "KeywordToken.hpp"
 #include "LongValue.hpp"
+#include "NonStaticVarAccessExpression.hpp"
 #include "OperatorFunInvokeExpression.hpp"
 #include "PackageScope.hpp"
 #include "SharedPtrTypes.hpp"
 #include "StmListScope.hpp"
 #include "StringValue.hpp"
+#include "ThisVarAccessExpression.hpp"
 #include "Type.hpp"
 #include "ULongValue.hpp"
+#include "VarAccessExpression.hpp"
 #include "Variable.hpp"
 #include "WhileStatement.hpp"
 #include "BuiltInFilePaths.hpp"
 #include "string_helper.hpp"
+#include <cassert>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -163,59 +167,19 @@ void Compiler::visit(VarStm* stm){
 }
 
 void Compiler::visit(AssignStatement* stm){
-    /*
-    * The left returns ts value in rax, also right, so remove last mov instruction for left, and swap the operands, to get more optimized code.
-    * Fact: left is VarAccessExpression, NonStaticVarAccessExpression or ThisVarExpression
-    * So left will generate last instruction in form of `mov RAX, [REG+offset]
-    * And right will be any expression, that will return its value in RAX with the left of side
-    * So just remove the last instruction of left, and add another one at the end, that has the form `mov [REG+offset], RAX
-    * The first operand will be the value at the variable address, i.e, the second operand in the last instruction of left
-    * the size of RAX in last instruction will match the size of the variable, i.e. the first operand in the last instruction of left
-    */
-
-    // constants cannot reach here
-
-    stm->getLeft()->accept(this);
-    auto instructions=&currentAsmLabel->instructions;
-    auto lastInstruction=(*instructions)[instructions->size()-1];
-    instructions->pop_back();
-    
+    leftAssign(stm->getLeft().get());
     stm->getRight()->accept(this);
-
-    auto comment=lastInstruction.comment;
-    std::wstring oldComment=L"الوصول ل";
-    auto newComment=L"تخصيص ";
-    comment.replace(0, oldComment.size(), newComment);
-
-    *currentAsmLabel+=Assembler::mov(
-        lastInstruction.operands[1],
-        lastInstruction.operands[0],
-        Assembler::AsmInstruction::IMPLICIT,
-        comment
-    );
+    rightAssign(stm->getLeft().get());
 }
 
 void Compiler::visit(AugmentedAssignStatement* stm){
     if(auto isBuiltIn=std::dynamic_pointer_cast<BuiltInFunScope>(stm->getOpFun())){
-        stm->getLeft()->accept(this);
-        auto instructions=&currentAsmLabel->instructions;
-        auto lastInstruction=(*instructions)[instructions->size()-1];
         
+        leftAssign(stm->getLeft().get());
         *currentAsmLabel+=Assembler::push(Assembler::RAX());
         stm->getRight()->accept(this);
         stm->getOpFun()->accept(this);
-
-        auto comment=lastInstruction.comment;
-        std::wstring oldComment=L"الوصول ل";
-        auto newComment=L"تخصيص ";
-        comment.replace(0, oldComment.size(), newComment);
-
-        *currentAsmLabel+=Assembler::mov(
-            lastInstruction.operands[1],
-            lastInstruction.operands[0],
-            Assembler::AsmInstruction::IMPLICIT,
-            comment
-        );
+        rightAssign(stm->getLeft().get());
     }else{
         // TODO
     }
@@ -467,12 +431,10 @@ void Compiler::visit(NonStaticVarAccessExpression* ex){
 
     ex->getInside()->accept(this);
 
-    *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX());
-
     *currentAsmLabel+=
         Assembler::mov(
             Assembler::RAX(varSize),
-            Assembler::addressMov(offset.reg, offset.value),
+            Assembler::addressMov(Assembler::RAX(), offset.value),
             Assembler::AsmInstruction::IMPLICIT,
             comment
         )
@@ -1034,4 +996,78 @@ void Compiler::invokeNonStaticFun(NonStaticFunInvokeExpression* ex){
     callFunAsm(ex->getFun().get(), ex->getArgs());
 
     *currentAsmLabel+=Assembler::pop(Assembler::RBX());
+}
+
+void Compiler::leftAssign(IExpression* ex){
+    if(dynamic_cast<VarAccessExpression*>(ex)||dynamic_cast<ThisVarAccessExpression*>(ex)){
+        ex->accept(this);
+        return;
+    }
+    if(auto varEx=dynamic_cast<NonStaticVarAccessExpression*>(ex)){
+        varEx->getInside()->accept(this);
+        *currentAsmLabel+=Assembler::push(Assembler::RAX());
+        auto var=varEx->getVar().get();
+        auto varSize=getVariableSize(var);
+        auto offset=offsets[var];
+        auto comment=
+            ((*var->isValue())?L"الوصول لثابت ":L"الوصول لمتغير ")
+            +varEx->getInside()->getReturnType()->getClassScope()->getName()
+            +L"::"
+            +*var->getName()
+        ;
+
+        *currentAsmLabel+=
+            Assembler::mov(
+                Assembler::RAX(varSize),
+                Assembler::addressMov(Assembler::RAX(), offset.value),
+                Assembler::AsmInstruction::IMPLICIT,
+                comment
+            )
+        ;
+    }
+    assert("Not accessible");
+}
+
+void Compiler::rightAssign(IExpression* ex){
+    if(auto varEx=dynamic_cast<VarAccessExpression*>(ex)){
+        auto var=varEx->getVar().get();
+        auto varSize=getVariableSize(var);
+        auto offset=offsets[var];
+        auto comment=L"تخصيص متغير "+*var->getName()+L": "+var->getType()->getClassScope()->getName();
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(offset.reg, offset.value),
+            Assembler::RAX(varSize),
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        );
+        return;
+    }
+    if(auto varEx=dynamic_cast<ThisVarAccessExpression*>(ex)){
+        auto var=varEx->getVar().get();
+        auto varSize=getVariableSize(var);
+        auto offset=offsets[var];
+        auto comment=L"تخصيص متغير "+*var->getName()+L": "+var->getType()->getClassScope()->getName();
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(offset.reg, offset.value),
+            Assembler::RAX(varSize),
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        );
+        return;
+    }
+    if(auto varEx=dynamic_cast<NonStaticVarAccessExpression*>(ex)){
+        auto var=varEx->getVar().get();
+        auto varSize=getVariableSize(var);
+        auto offset=offsets[var];
+        auto comment=L"تخصيص متغير "+*var->getName()+L": "+var->getType()->getClassScope()->getName();
+        
+        *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The address of inside ex
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(Assembler::RDI(), offset.value),
+            Assembler::RAX(varSize),
+            Assembler::AsmInstruction::IMPLICIT,
+            comment
+        );
+    }
+    assert("Not accessible");
 }

@@ -6,6 +6,7 @@
 #include "ASTVisitor.hpp"
 #include "CompilerVarsOffsetSetter.hpp"
 
+#include "IExpression.hpp"
 #include "PackageScope.hpp"
 #include "FileScope.hpp"
 #include "ClassScope.hpp"
@@ -85,6 +86,9 @@ class Compiler:public ASTVisitor{
         void callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args);
 
         void invokeNonStaticFun(NonStaticFunInvokeExpression* ex);
+
+        void leftAssign(IExpression* ex);
+        void rightAssign(IExpression* ex);
 
     public:
         void visit(PackageScope* scope)override;
