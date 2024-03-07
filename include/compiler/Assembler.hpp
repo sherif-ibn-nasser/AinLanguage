@@ -78,6 +78,9 @@ namespace Assembler {
             CDQE,
             CWD,
             CDQ,
+            CMOVZ,
+            CMOVS,
+            CMOVG,
         };
 
         enum InstructionSize{
@@ -152,6 +155,9 @@ namespace Assembler {
     AsmInstruction cdqe(std::wstring comment=L"");
     AsmInstruction cwd(std::wstring comment=L"");
     AsmInstruction cdq(std::wstring comment=L"");
+    AsmInstruction cmovz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction cmovs(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction cmovg(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");

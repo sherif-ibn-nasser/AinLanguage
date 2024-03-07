@@ -86,6 +86,7 @@ class Compiler:public ASTVisitor{
         void callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args);
 
         void invokeNonStaticFun(NonStaticFunInvokeExpression* ex);
+        void invokeNonStaticBuiltInFun(NonStaticFunInvokeExpression* ex);
 
         void leftAssign(IExpression* ex);
         void rightAssign(IExpression* ex);

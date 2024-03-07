@@ -14,6 +14,7 @@
 #include "IntValue.hpp"
 #include "KeywordToken.hpp"
 #include "LongValue.hpp"
+#include "NonStaticFunInvokeExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "OperatorFunInvokeExpression.hpp"
 #include "PackageScope.hpp"
@@ -174,14 +175,38 @@ void Compiler::visit(AssignStatement* stm){
 
 void Compiler::visit(AugmentedAssignStatement* stm){
     if(auto isBuiltIn=std::dynamic_pointer_cast<BuiltInFunScope>(stm->getOpFun())){
-        
         leftAssign(stm->getLeft().get());
         *currentAsmLabel+=Assembler::push(Assembler::RAX());
         stm->getRight()->accept(this);
         stm->getOpFun()->accept(this);
         rightAssign(stm->getLeft().get());
     }else{
-        // TODO
+        auto rightSize=Type::getSize(stm->getRight()->getReturnType().get());
+        
+        *currentAsmLabel+=Assembler::push(Assembler::RBX());
+        leftAssign(stm->getLeft().get());
+        
+        *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX());
+        
+        *currentAsmLabel+=Assembler::reserveSpaceOnStack(rightSize);
+        stm->getRight()->accept(this);
+        *currentAsmLabel+=
+            Assembler::mov(
+                Assembler::addressMov(Assembler::RSP()),
+                Assembler::RAX(rightSize)
+            );
+        auto fun=stm->getOpFun().get();
+        if (labelsAsm.find(fun)==labelsAsm.end())
+            fun->accept(this);
+        *currentAsmLabel+=Assembler::call(
+            Assembler::label(labelsAsm[fun].label),
+            L"استدعاء دالة "+fun->getParentScope()->getName()+L"::"+fun->getDecl()->toString()
+        );
+        Assembler::removeReservedSpaceFromStack(rightSize);
+        
+        rightAssign(stm->getLeft().get());
+
+        *currentAsmLabel+=Assembler::pop(Assembler::RBX());
     }
 }
 
@@ -443,7 +468,7 @@ void Compiler::visit(NonStaticVarAccessExpression* ex){
 
 void Compiler::visit(NonStaticFunInvokeExpression* ex){
     if(auto builtIn=std::dynamic_pointer_cast<BuiltInFunScope>(ex->getFun())){
-        // TODO: invokeNonStaticBuiltInFun(ex);
+        invokeNonStaticBuiltInFun(ex);
         return;
     }
     invokeNonStaticFun(ex);
@@ -454,7 +479,90 @@ void Compiler::visit(OperatorFunInvokeExpression* ex){
         invokeBuiltInOpFun(ex);
         return;
     }
-    // TODO
+
+    auto op=ex->getOp();
+
+    if(
+        op==OperatorFunInvokeExpression::Operator::PRE_INC
+        ||
+        op==OperatorFunInvokeExpression::Operator::PRE_DEC
+        ||
+        op==OperatorFunInvokeExpression::Operator::POST_INC
+        ||
+        op==OperatorFunInvokeExpression::Operator::POST_DEC
+    ){
+
+        *currentAsmLabel+=Assembler::push(Assembler::RBX());
+        leftAssign(ex->getInside().get());
+
+        switch(op){
+            case OperatorFunInvokeExpression::Operator::POST_INC:
+            case OperatorFunInvokeExpression::Operator::POST_DEC:
+                *currentAsmLabel+=Assembler::push(Assembler::RAX()); // old val
+            default:
+                break;
+        }
+
+        *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX());
+
+        auto fun=ex->getFun().get();
+        if (labelsAsm.find(fun)==labelsAsm.end())
+            fun->accept(this);
+        *currentAsmLabel+=Assembler::call(
+            Assembler::label(labelsAsm[fun].label),
+            L"استدعاء دالة "+fun->getParentScope()->getName()+L"::"+fun->getDecl()->toString()
+        );
+
+        rightAssign(ex->getInside().get());
+
+        switch(op){
+            case OperatorFunInvokeExpression::Operator::POST_INC:
+            case OperatorFunInvokeExpression::Operator::POST_DEC:
+                *currentAsmLabel+=Assembler::pop(Assembler::RAX()); // old val
+            default:
+                break;
+        }
+
+        *currentAsmLabel+=Assembler::pop(Assembler::RBX());
+
+        return;
+    }
+
+    invokeNonStaticFun(ex);
+
+    switch (op) {
+        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+        case OperatorFunInvokeExpression::Operator::LESS:
+        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+        case OperatorFunInvokeExpression::Operator::GREATER:
+        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
+            break;
+        default:
+            return;
+    }
+
+    *currentAsmLabel+=Assembler::cmp(Assembler::RAX(), Assembler::imm(L"0"));
+
+    auto AL=Assembler::RAX(Assembler::AsmInstruction::BYTE);
+
+    switch (op) {
+        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+            *currentAsmLabel+=Assembler::setz(AL);
+            break;
+        case OperatorFunInvokeExpression::Operator::LESS:
+            *currentAsmLabel+=Assembler::setl(AL);
+            break;
+        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+            *currentAsmLabel+=Assembler::setle(AL);
+            break;
+        case OperatorFunInvokeExpression::Operator::GREATER:
+            *currentAsmLabel+=Assembler::setg(AL);
+            break;
+        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
+            *currentAsmLabel+=Assembler::setge(AL);
+            break;
+        default:{}
+    }
 }
 
 void Compiler::visit(SetOperatorExpression* ex){
@@ -734,8 +842,18 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     if(isPreInc||isPostInc||isPreDec||isPostDec){
 
         auto instructions=&currentAsmLabel->instructions;
-        auto lastInstruction=instructions->back();
 
+        if(!IExpression::isAssignableExpression(inside)){
+            // The inc/dec called as a function on non-assignable ex
+            if (isPreInc||isPostInc)
+                *currentAsmLabel+=Assembler::inc(Assembler::RAX());
+            else
+                *currentAsmLabel+=Assembler::dec(Assembler::RAX());
+
+            return;
+        }
+        
+        auto lastInstruction=instructions->back();
         auto comment=lastInstruction.comment;
         std::wstring oldComment=L"الوصول ل";
         auto newComment=(isPreInc||isPostInc)?L"زيادة ":L"نقصان ";
@@ -998,6 +1116,35 @@ void Compiler::invokeNonStaticFun(NonStaticFunInvokeExpression* ex){
     *currentAsmLabel+=Assembler::pop(Assembler::RBX());
 }
 
+void Compiler::invokeNonStaticBuiltInFun(NonStaticFunInvokeExpression* ex){
+    auto opEx=OperatorFunInvokeExpression(
+        0, // linenumber is not important here
+        ex->getFunName(),
+        ex->getArgs(),
+        ex->getInside()
+    );
+    opEx.setFun(ex->getFun());
+    opEx.setReturnType(ex->getReturnType());
+    opEx.accept(this);
+    switch (opEx.getOp()) {
+        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+        case OperatorFunInvokeExpression::Operator::LESS:
+        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+        case OperatorFunInvokeExpression::Operator::GREATER:
+        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:
+            currentAsmLabel->instructions.pop_back(); // remove the set instruction
+            // FIXME: This it too long for this trivial code
+            *currentAsmLabel+=Assembler::mov(Assembler::RDX(), Assembler::imm(L"0"));
+            *currentAsmLabel+=Assembler::cmovz(Assembler::RAX(),Assembler::RDX());
+            *currentAsmLabel+=Assembler::mov(Assembler::RDX(), Assembler::imm(L"-1"));
+            *currentAsmLabel+=Assembler::cmovs(Assembler::RAX(),Assembler::RDX());
+            *currentAsmLabel+=Assembler::mov(Assembler::RDX(), Assembler::imm(L"1"));
+            *currentAsmLabel+=Assembler::cmovg(Assembler::RAX(),Assembler::RDX());
+        default:
+        break;
+    }
+}
+
 void Compiler::leftAssign(IExpression* ex){
     if(dynamic_cast<VarAccessExpression*>(ex)||dynamic_cast<ThisVarAccessExpression*>(ex)){
         ex->accept(this);
@@ -1024,8 +1171,9 @@ void Compiler::leftAssign(IExpression* ex){
                 comment
             )
         ;
+        return;
     }
-    assert("Not accessible");
+    throw("Not accessible");
 }
 
 void Compiler::rightAssign(IExpression* ex){
@@ -1068,6 +1216,7 @@ void Compiler::rightAssign(IExpression* ex){
             Assembler::AsmInstruction::IMPLICIT,
             comment
         );
+        return;
     }
-    assert("Not accessible");
+   throw("Not accessible");
 }

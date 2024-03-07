@@ -15,9 +15,17 @@ class OperatorFunInvokeExpression:public NonStaticFunInvokeExpression{
             GET,
             SET_EQUAL, // Should be used when the operator of set is equal
         };
+        
         OperatorFunInvokeExpression(
             int lineNumber,
             Operator op,
+            SharedVector<SharedIExpression> args,
+            SharedIExpression inside
+        );
+
+        OperatorFunInvokeExpression(
+            int lineNumber,
+            std::wstring opName,
             SharedVector<SharedIExpression> args,
             SharedIExpression inside
         );

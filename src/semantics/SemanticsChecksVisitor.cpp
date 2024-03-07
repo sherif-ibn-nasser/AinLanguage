@@ -807,8 +807,8 @@ void SemanticsChecksVisitor::checkOperatorFunReturnType(FunScope* scope){
 
     auto returnType=scope->getReturnType();
 
-    if(opName==OperatorFunctions::COMPARE_TO_NAME&&returnType->getClassScope()!=Type::INT->getClassScope())
-        throw InvalidOperatorFunDeclarationException(L"دالة قارن_مع يجب أن ترجع قيمة من نوع صحيح.");
+    if(opName==OperatorFunctions::COMPARE_TO_NAME&&returnType->getClassScope()!=Type::LONG->getClassScope())
+        throw InvalidOperatorFunDeclarationException(L"دالة قارن_مع يجب أن ترجع قيمة من نوع كبير.");
 
     if(opName==OperatorFunctions::EQUALS_NAME&&returnType->getClassScope()!=Type::BOOL->getClassScope())
         throw InvalidOperatorFunDeclarationException(L"دالة يساوي يجب أن ترجع قيمة من نوع منطقي.");

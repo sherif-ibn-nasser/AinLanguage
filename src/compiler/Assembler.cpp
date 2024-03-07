@@ -120,6 +120,12 @@ namespace Assembler {
                 text=L"cwd";break;
             case CDQ:
                 text=L"cdq";break;
+            case CMOVZ:
+                text=L"cmovz";break;
+            case CMOVS:
+                text=L"cmovs";break;
+            case CMOVG:
+                text=L"cmovg";break;
         }
 
         switch (size) {
@@ -565,6 +571,33 @@ namespace Assembler {
             .type=AsmInstruction::CDQ,
             .size=AsmInstruction::IMPLICIT,
             .operands={},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cmovz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CMOVZ,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cmovs(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CMOVS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cmovg(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CMOVG,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
             .comment=comment
         };
     }

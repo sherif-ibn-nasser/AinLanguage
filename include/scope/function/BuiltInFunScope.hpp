@@ -434,12 +434,12 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getCompareToFun(
 ){
     return std::make_shared<BuiltInFunScope>(
         OperatorFunctions::COMPARE_TO_NAME,
-        Type::INT,
+        Type::LONG,
         std::vector<std::pair<std::wstring, SharedType>>{{paramName,paramType}},
         [=](Interpreter* interpreter){
             auto a=std::dynamic_pointer_cast<PrimitiveValue<PrimitiveType>>(interpreter->AX)->getValue();
             auto b=std::dynamic_pointer_cast<ParamValue>(interpreter->CX)->getValue();
-            interpreter->AX=std::make_shared<IntValue>(a-b);
+            interpreter->AX=std::make_shared<LongValue>(a-b);
         },
         true
     );
