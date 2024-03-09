@@ -324,6 +324,25 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
+    auto WRITE_ULONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::UNIT,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {ULONG_PARAM_NAME,Type::ULONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        []()->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI()),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
+        }
+    );
+
     auto READ_BYTE_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
         READ_BYTE_FROM_ADDRESS_NAME,
         Type::BYTE,
@@ -542,6 +561,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         WRITE_CHAR_TO_ADDRESS,
         WRITE_BYTE_TO_ADDRESS,
         WRITE_LONG_TO_ADDRESS,
+        WRITE_ULONG_TO_ADDRESS,
         READ_BYTE_FROM_ADDRESS,
         READ_LONG_FROM_ADDRESS,
         READ,READ_LINE,
@@ -2904,7 +2924,7 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
     auto GET=std::make_shared<BuiltInFunScope>(
         OperatorFunctions::GET_NAME,
         genericType,
-        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::INT}},
+        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::ULONG}},
         [](Interpreter* interpreter){
             auto arrayAddress=std::dynamic_pointer_cast<RefValue>(interpreter->AX)->getAddress();
             auto index=std::dynamic_pointer_cast<IntValue>(interpreter->CX)->getValue();
@@ -2920,7 +2940,7 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
         OperatorFunctions::SET_NAME,
         Type::UNIT,
         std::vector<std::pair<std::wstring, SharedType>>{
-            {INDEX_PARAM_NAME,Type::INT},
+            {INDEX_PARAM_NAME,Type::ULONG},
             {VALUE_PARAM_NAME,genericType},
         },
         [](Interpreter* interpreter){

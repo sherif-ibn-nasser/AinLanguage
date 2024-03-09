@@ -350,6 +350,30 @@ namespace Assembler {
         };
     }
 
+    AsmInstruction js(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JS,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction jns(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JNS,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction jl(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JL,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
     AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::INC,

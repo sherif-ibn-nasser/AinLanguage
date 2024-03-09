@@ -130,6 +130,9 @@ namespace Assembler {
     AsmInstruction jmp(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jz(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jnz(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction js(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction jns(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction jl(AsmOperand label, std::wstring comment=L"");
     AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction dec(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction neg(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");

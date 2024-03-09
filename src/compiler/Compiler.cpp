@@ -85,10 +85,12 @@ void Compiler::visit(FunScope* scope){
     auto prevLabelAsm=currentAsmLabel;
     auto prevLoopsLabelsSize=currentLoopLabelsSize;
     auto prevIfLabelsSize=currentIfLabelsSize;
+    auto prevLogicalShortcutsLabelsSize=currentLogicalShortcutsLabelsSize;
 
     currentAsmLabel=&labelsAsm[scope];
     currentLoopLabelsSize=0;
     currentIfLabelsSize=0;
+    currentLogicalShortcutsLabelsSize=0;
 
     *currentAsmLabel+=Assembler::push(Assembler::RBP());
     *currentAsmLabel+=Assembler::mov(Assembler::RBP(), Assembler::RSP());
@@ -128,6 +130,7 @@ void Compiler::visit(FunScope* scope){
     currentAsmLabel=prevLabelAsm;
     currentLoopLabelsSize=prevLoopsLabelsSize;
     currentIfLabelsSize=prevIfLabelsSize;
+    currentLogicalShortcutsLabelsSize=prevLogicalShortcutsLabelsSize;
     
 }
 
@@ -359,7 +362,102 @@ void Compiler::visit(NewObjectExpression* ex){
 
 void Compiler::visit(NewArrayExpression* ex){
     addAinAllocAsm();
-    // TODO
+
+    auto capExs=ex->getCapacities();
+    auto capCount=capExs.size();
+    auto elementSize=Type::getSize(ex->getReturnType()->asArray()->getType().get());
+
+    if(capCount==1){
+        capExs[0]->accept(this);
+
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push the evaluated user size
+
+        *currentAsmLabel+=Assembler::lea(
+            Assembler::RAX(),
+            Assembler::addressLea(
+                Assembler::RAX().value+L"*"+std::to_wstring(elementSize)+L"+8" // add 8 bytes for the user size of the array
+            )
+        );
+
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push the size arg for ainalloc
+
+        *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label));
+
+        *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // the size arg for ainalloc
+        *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // the user size
+
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(Assembler::RAX()),
+            Assembler::RDX()
+        ); // write the evaluated user size
+
+        return;
+    }
+
+    /* TODO:
+    auto loopNumStr=std::to_wstring(++currentLoopLabelsSize);
+    auto loopLabelStr=L"loop"+loopNumStr;
+    auto continueLabelStr=L"continue"+loopNumStr;
+    auto breakLabelStr=L"break"+loopNumStr;
+
+    auto loopLabel=Assembler::localLabel(loopLabelStr);
+    auto continueLabel=Assembler::localLabel(continueLabelStr);
+    auto breakLabel=Assembler::localLabel(breakLabelStr);
+    auto i=0;
+    for(auto capEx:capExs){
+        capEx->accept(this);
+        auto size=(i++==0)?L"*8+8":L"*8+24";
+        *currentAsmLabel+=Assembler::lea(
+            Assembler::RAX(),
+            Assembler::addressLea(Assembler::RAX().value+size)
+        );
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push the size ex
+    }
+
+    *currentAsmLabel+=Assembler::lea(
+        Assembler::RDI(),
+        Assembler::addressLea(
+            Assembler::RSP().value+L"+"+std::to_wstring(8*capExs.size()-8)
+        )
+    );
+
+    *currentAsmLabel+=Assembler::jmp(Assembler::label(L"."+continueLabelStr));
+
+    *currentAsmLabel+=loopLabel;
+
+    *currentAsmLabel+=Assembler::mul(
+        Assembler::addressMov(Assembler::RDI()),
+        Assembler::AsmInstruction::QWORD
+    );
+
+    *currentAsmLabel+=Assembler::lea(
+        Assembler::RDI(),
+        Assembler::addressLea(Assembler::RDI().value+L"-8")
+    );
+
+    *currentAsmLabel+=continueLabel;
+
+    *currentAsmLabel+=Assembler::cmp(Assembler::RDI(), Assembler::RSP());
+
+    *currentAsmLabel+=Assembler::jns(Assembler::label(L"."+loopLabelStr));
+
+    *currentAsmLabel+=breakLabel;
+
+    // FIXME: The size of bytes required for full multi-dimension array after splitting the big allocated block, i.e. the full size to call ainalloc on it
+
+
+    *currentAsmLabel+=Assembler::lea(
+        Assembler::RAX(),
+        Assembler::addressLea(
+            Assembler::RAX().value+L"*"+std::to_wstring(elementSize)
+        )
+    );
+
+    *currentAsmLabel+=Assembler::push(Assembler::RAX());
+
+    *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label));
+    */
+
 }
 
 void Compiler::visit(LiteralExpression* ex){
@@ -831,8 +929,8 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     }
 
     auto returnType=ex->getReturnType().get();
-    auto size=Type::getSize(returnType);
-    auto sizeAsm=Assembler::size(size);
+    auto returnTypeSize=Type::getSize(returnType);
+    auto sizeAsm=Assembler::size(returnTypeSize);
 
     auto isPreInc=op==OperatorFunInvokeExpression::Operator::PRE_INC;
     auto isPreDec=op==OperatorFunInvokeExpression::Operator::PRE_DEC;
@@ -883,8 +981,68 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     }
 
     for(auto arg:*ex->getArgs()){
-        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push (inside expression) to the stack
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push (inside expression or the index arg for set operator) to the stack
         arg->accept(this);
+    }
+
+    if(op==OperatorFunInvokeExpression::Operator::GET){
+        *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The array pointer which is first arg pushed as if get is a binary operator
+        *currentAsmLabel+=Assembler::localLabel(L"if"+std::to_wstring(++currentIfLabelsSize));
+        *currentAsmLabel+=Assembler::cmp(
+            Assembler::RSI(),
+            Assembler::addressMov(Assembler::RDI()),
+            L"مقارنة رقم العنصر مع سعة المصفوفة"
+        );
+        auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
+        *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
+        // TODO: Throw exception:
+        *currentAsmLabel+=Assembler::localLabel(endLabel);
+        *currentAsmLabel+=Assembler::lea(
+            Assembler::RSI(),
+            Assembler::addressLea(
+                Assembler::RDI().value+L"+8+"+Assembler::RAX().value+L"*"+std::to_wstring(returnTypeSize)
+            ),
+            Assembler::AsmInstruction::IMPLICIT,
+            L"الوصول لرقم العنصر في المصفوفة"
+        );
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::RAX(returnTypeSize),
+            Assembler::addressMov(Assembler::RSI()),
+            Assembler::AsmInstruction::IMPLICIT,
+            L"الوصول للعنصر في المصفوفة"
+        );
+        return;
+    }
+
+    else if(op==OperatorFunInvokeExpression::Operator::SET_EQUAL){
+        auto arrayElementSize=Type::getSize((*ex->getArgs())[1]->getReturnType().get());
+        *currentAsmLabel+=Assembler::pop(Assembler::RSI()); // The index arg
+        *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The array pointer arg
+        *currentAsmLabel+=Assembler::localLabel(L"if"+std::to_wstring(++currentIfLabelsSize));
+        *currentAsmLabel+=Assembler::cmp(
+            Assembler::RSI(),
+            Assembler::addressMov(Assembler::RDI()),
+            L"مقارنة رقم العنصر مع سعة المصفوفة"
+        );
+        auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
+        *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
+        // TODO: Throw exception:
+        *currentAsmLabel+=Assembler::localLabel(endLabel);
+        *currentAsmLabel+=Assembler::lea(
+            Assembler::RSI(),
+            Assembler::addressLea(
+                Assembler::RDI().value+L"+8+"+Assembler::RSI().value+L"*"+std::to_wstring(arrayElementSize)
+            ),
+            Assembler::AsmInstruction::IMPLICIT,
+            L"الوصول لرقم العنصر في المصفوفة"
+        );
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(Assembler::RSI()),
+            Assembler::RAX(arrayElementSize),
+            Assembler::AsmInstruction::IMPLICIT,
+            L"تخصيص العنصر في المصفوفة"
+        );
+        return;
     }
 
     addInstructionToConvertBetweenDataTypes(argSize, insideSize, isUnsigned);
@@ -929,7 +1087,6 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
         case OperatorFunInvokeExpression::Operator::SHR:
         case OperatorFunInvokeExpression::Operator::SHL:
         case OperatorFunInvokeExpression::Operator::POW:
-        case OperatorFunInvokeExpression::Operator::GET:
             ex->getFun()->accept(this);
             return;
 

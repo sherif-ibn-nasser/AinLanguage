@@ -449,10 +449,10 @@ void SemanticsChecksVisitor::visit(NewArrayExpression* ex){
     for(auto cap:ex->getCapacities()){
         cap->accept(this);
         auto capType=cap->getReturnType();
-        if(capType->getClassScope()!=Type::INT->getClassScope())
+        if(capType->getClassScope()!=Type::ULONG->getClassScope())
             throw UnexpectedTypeException(
                 cap->getLineNumber(),
-                *Type::INT_NAME,
+                *Type::ULONG_NAME,
                 *capType->getName()
             );
     }
