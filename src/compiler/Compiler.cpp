@@ -18,6 +18,7 @@
 #include "NonStaticVarAccessExpression.hpp"
 #include "OperatorFunInvokeExpression.hpp"
 #include "PackageScope.hpp"
+#include "SetOperatorExpression.hpp"
 #include "SharedPtrTypes.hpp"
 #include "StmListScope.hpp"
 #include "StringValue.hpp"
@@ -358,6 +359,7 @@ void Compiler::visit(NewObjectExpression* ex){
         ex->getArgs()
     );
 
+    *currentAsmLabel+=Assembler::pop(Assembler::RBX()); // The old address
 }
 
 void Compiler::visit(NewArrayExpression* ex){
@@ -678,7 +680,7 @@ void Compiler::visit(SetOperatorExpression* ex){
         ex->getIndexEx()->accept(this);
         addArrayGetOpAsm(arrayElementSize);
         // RDI contains the array pointer
-        // RSI contains the address of element
+        // RSI contains the address of element (the index is performed relative to the array pointer)
         // RAX contains the value returned by get op
 
         if(auto isBuiltIn=dynamic_cast<BuiltInFunScope*>(funOfOp)){
@@ -703,6 +705,7 @@ void Compiler::visit(SetOperatorExpression* ex){
                         Assembler::AsmInstruction::IMPLICIT,
                         L"تخصيص العنصر في المصفوفة"
                     );
+                    *currentAsmLabel+=Assembler::zero(Assembler::RAX());
                     return;
                 }
                 case SetOperatorExpression::Operator::PRE_INC:{
@@ -745,7 +748,107 @@ void Compiler::visit(SetOperatorExpression* ex){
             }
         }
         else{
-            // TODO
+            *currentAsmLabel+=Assembler::push(Assembler::RSI()); // The address of the element in array
+            switch(op){
+                case SetOperatorExpression::Operator::PLUS_EQUAL:
+                case SetOperatorExpression::Operator::MINUS_EQUAL:
+                case SetOperatorExpression::Operator::TIMES_EQUAL:
+                case SetOperatorExpression::Operator::DIV_EQUAL:
+                case SetOperatorExpression::Operator::MOD_EQUAL:
+                case SetOperatorExpression::Operator::POW_EQUAL:
+                case SetOperatorExpression::Operator::SHR_EQUAL:
+                case SetOperatorExpression::Operator::SHL_EQUAL:
+                case SetOperatorExpression::Operator::BIT_AND_EQUAL:
+                case SetOperatorExpression::Operator::XOR_EQUAL:
+                case SetOperatorExpression::Operator::BIT_OR_EQUAL:{
+                    
+                    *currentAsmLabel+=Assembler::push(Assembler::RAX()); // The value returned by get
+                    ex->getValueEx()->accept(this);
+                    *currentAsmLabel+=Assembler::pop(Assembler::RCX()); // The value returned by get
+
+                    *currentAsmLabel+=Assembler::push(Assembler::RBX()); // The prev object
+                    *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RCX()); // The value returned by get, i.e. the object address to preform op fun on it
+
+                    auto valueSize=Type::getSize(ex->getValueEx()->getReturnType().get());
+                    if(valueSize!=8){
+                        *currentAsmLabel+=Assembler::reserveSpaceOnStack(valueSize);
+                        *currentAsmLabel+=Assembler::mov(
+                            Assembler::addressMov(Assembler::RSP()),
+                            Assembler::RAX(valueSize)
+                        );
+                    }
+                    else
+                        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // The value to preform bin op on it, i.e. the arg of the op fun
+
+                    if(labelsAsm.find(funOfOp)==labelsAsm.end())
+                        funOfOp->accept(this);
+
+                    *currentAsmLabel+=Assembler::call(
+                        Assembler::label(labelsAsm[funOfOp].label),
+                        L"استدعاء دالة "+funOfOp->getParentScope()->getName()+L"::"+funOfOp->getDecl()->toString()
+                    );
+                    if(valueSize!=8)
+                        *currentAsmLabel+=Assembler::removeReservedSpaceFromStack(valueSize);
+                    else
+                        *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // The value to preform bin op on it, i.e. the arg of the op fun
+
+                    *currentAsmLabel+=Assembler::pop(Assembler::RBX()); // The prev object
+                    break;
+                }
+                case SetOperatorExpression::Operator::POST_INC:
+                case SetOperatorExpression::Operator::POST_DEC:
+                    *currentAsmLabel+=push(Assembler::RAX()); // The value returned by get
+                
+                case SetOperatorExpression::Operator::PRE_INC:
+                case SetOperatorExpression::Operator::PRE_DEC:{
+                    *currentAsmLabel+=Assembler::push(Assembler::RBX()); // The prev object
+                    *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX()); // The value returned by get, i.e. the object address to preform op fun on it
+                    
+                    if(labelsAsm.find(funOfOp)==labelsAsm.end())
+                        funOfOp->accept(this);
+
+                    *currentAsmLabel+=Assembler::call(
+                        Assembler::label(labelsAsm[funOfOp].label),
+                        L"استدعاء دالة "+funOfOp->getParentScope()->getName()+L"::"+funOfOp->getDecl()->toString()
+                    );
+                    *currentAsmLabel+=Assembler::pop(Assembler::RBX()); // The prev object
+
+                    break;
+                }
+                default:{} // BAD_OP
+
+                if(op==SetOperatorExpression::Operator::POST_INC||op==SetOperatorExpression::Operator::POST_DEC)
+                    *currentAsmLabel+=pop(Assembler::RAX()); // The value returned by get
+                
+            }
+
+            *currentAsmLabel+=Assembler::pop(Assembler::RSI()); // The address of the element in array
+
+            *currentAsmLabel+=Assembler::mov(
+                Assembler::addressMov(Assembler::RSI()),
+                Assembler::RAX(arrayElementSize),
+                Assembler::AsmInstruction::IMPLICIT,
+                L"تخصيص العنصر في المصفوفة"
+            );
+
+            switch (op) {
+                case SetOperatorExpression::Operator::PRE_INC:
+                case SetOperatorExpression::Operator::PRE_DEC:{
+                    *currentAsmLabel+=Assembler::mov(
+                        Assembler::RAX(),
+                        Assembler::addressMov(Assembler::RSI())
+                    );
+                    return;
+                }
+                case SetOperatorExpression::Operator::POST_INC:
+                case SetOperatorExpression::Operator::POST_DEC:
+                    break;
+                default:{
+                    *currentAsmLabel+=Assembler::zero(Assembler::RAX());
+                    return;
+                }
+            }
+
         }
 
     }
@@ -1295,16 +1398,15 @@ void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args){
         comment
     );
 
-    Assembler::removeReservedSpaceFromStack(argsSize);
+    *currentAsmLabel+=Assembler::removeReservedSpaceFromStack(argsSize);
 
     // The returned address is on RAX
 }
 
 void Compiler::invokeNonStaticFun(NonStaticFunInvokeExpression* ex){
-    *currentAsmLabel+=Assembler::push(Assembler::RBX());
-
     ex->getInside()->accept(this);
 
+    *currentAsmLabel+=Assembler::push(Assembler::RBX());
     *currentAsmLabel+=Assembler::mov(Assembler::RBX(),Assembler::RAX());
 
     callFunAsm(ex->getFun().get(), ex->getArgs());
