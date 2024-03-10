@@ -91,6 +91,9 @@ class Compiler:public ASTVisitor{
         void leftAssign(IExpression* ex);
         void rightAssign(IExpression* ex);
 
+        void addArrayGetOpAsm(int arrayElementSize);
+        void addArraySetOpAsm(int arrayElementSize);
+
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;

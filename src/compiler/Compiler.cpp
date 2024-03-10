@@ -664,7 +664,95 @@ void Compiler::visit(OperatorFunInvokeExpression* ex){
 }
 
 void Compiler::visit(SetOperatorExpression* ex){
-    // TODO    
+    
+    auto op=ex->getOp();
+
+    auto funOfGet=ex->getExOfGet()->getFun().get();
+    auto funOfOp=ex->getFunOfOp().get();
+    auto funOfSet=ex->getFunOfSet().get();
+    auto arrayElementSize=Type::getSize(funOfGet->getReturnType().get());
+
+    if(auto isBuiltIn=dynamic_cast<BuiltInFunScope*>(funOfGet)!=nullptr){
+        ex->getExHasGetOp()->accept(this);
+        *currentAsmLabel+=Assembler::push(Assembler::RAX());
+        ex->getIndexEx()->accept(this);
+        addArrayGetOpAsm(arrayElementSize);
+        // RDI contains the array pointer
+        // RSI contains the address of element
+        // RAX contains the value returned by get op
+
+        if(auto isBuiltIn=dynamic_cast<BuiltInFunScope*>(funOfOp)){
+            switch(op){
+                case SetOperatorExpression::Operator::PLUS_EQUAL:
+                case SetOperatorExpression::Operator::MINUS_EQUAL:
+                case SetOperatorExpression::Operator::TIMES_EQUAL:
+                case SetOperatorExpression::Operator::DIV_EQUAL:
+                case SetOperatorExpression::Operator::MOD_EQUAL:
+                case SetOperatorExpression::Operator::POW_EQUAL:
+                case SetOperatorExpression::Operator::SHR_EQUAL:
+                case SetOperatorExpression::Operator::SHL_EQUAL:
+                case SetOperatorExpression::Operator::BIT_AND_EQUAL:
+                case SetOperatorExpression::Operator::XOR_EQUAL:
+                case SetOperatorExpression::Operator::BIT_OR_EQUAL:{
+                    *currentAsmLabel+=Assembler::push(Assembler::RAX()); // The value returned by get
+                    ex->getValueEx()->accept(this);
+                    funOfOp->accept(this);
+                    *currentAsmLabel+=Assembler::mov(
+                        Assembler::addressMov(Assembler::RSI()),
+                        Assembler::RAX(arrayElementSize),
+                        Assembler::AsmInstruction::IMPLICIT,
+                        L"تخصيص العنصر في المصفوفة"
+                    );
+                    return;
+                }
+                case SetOperatorExpression::Operator::PRE_INC:{
+                    *currentAsmLabel+=Assembler::inc(
+                        Assembler::addressMov(Assembler::RSI()),
+                        Assembler::size(arrayElementSize)
+                    );
+                    *currentAsmLabel+=Assembler::mov(
+                        Assembler::RAX(),
+                        Assembler::addressMov(Assembler::RSI())
+                    );
+                    return;
+                }
+                case SetOperatorExpression::Operator::PRE_DEC:{
+                    *currentAsmLabel+=Assembler::dec(
+                        Assembler::addressMov(Assembler::RSI()),
+                        Assembler::size(arrayElementSize)
+                    );
+                    *currentAsmLabel+=Assembler::mov(
+                        Assembler::RAX(),
+                        Assembler::addressMov(Assembler::RSI())
+                    );
+                    return;
+                }
+                case SetOperatorExpression::Operator::POST_INC:{
+                    *currentAsmLabel+=Assembler::inc(
+                        Assembler::addressMov(Assembler::RSI()),
+                        Assembler::size(arrayElementSize)
+                    );
+                    return;
+                }
+                case SetOperatorExpression::Operator::POST_DEC:{
+                    *currentAsmLabel+=Assembler::dec(
+                        Assembler::addressMov(Assembler::RSI()),
+                        Assembler::size(arrayElementSize)
+                    );
+                    return;
+                }
+                default:{} // BAD_OP
+            }
+        }
+        else{
+            // TODO
+        }
+
+    }
+    else{
+        // TODO
+    }
+   
 }
 
 void Compiler::visit(ThisExpression* ex){
@@ -986,62 +1074,13 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     }
 
     if(op==OperatorFunInvokeExpression::Operator::GET){
-        *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The array pointer which is first arg pushed as if get is a binary operator
-        *currentAsmLabel+=Assembler::localLabel(L"if"+std::to_wstring(++currentIfLabelsSize));
-        *currentAsmLabel+=Assembler::cmp(
-            Assembler::RSI(),
-            Assembler::addressMov(Assembler::RDI()),
-            L"مقارنة رقم العنصر مع سعة المصفوفة"
-        );
-        auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
-        *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
-        // TODO: Throw exception:
-        *currentAsmLabel+=Assembler::localLabel(endLabel);
-        *currentAsmLabel+=Assembler::lea(
-            Assembler::RSI(),
-            Assembler::addressLea(
-                Assembler::RDI().value+L"+8+"+Assembler::RAX().value+L"*"+std::to_wstring(returnTypeSize)
-            ),
-            Assembler::AsmInstruction::IMPLICIT,
-            L"الوصول لرقم العنصر في المصفوفة"
-        );
-        *currentAsmLabel+=Assembler::mov(
-            Assembler::RAX(returnTypeSize),
-            Assembler::addressMov(Assembler::RSI()),
-            Assembler::AsmInstruction::IMPLICIT,
-            L"الوصول للعنصر في المصفوفة"
-        );
+        addArrayGetOpAsm(returnTypeSize);
         return;
     }
 
     else if(op==OperatorFunInvokeExpression::Operator::SET_EQUAL){
         auto arrayElementSize=Type::getSize((*ex->getArgs())[1]->getReturnType().get());
-        *currentAsmLabel+=Assembler::pop(Assembler::RSI()); // The index arg
-        *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The array pointer arg
-        *currentAsmLabel+=Assembler::localLabel(L"if"+std::to_wstring(++currentIfLabelsSize));
-        *currentAsmLabel+=Assembler::cmp(
-            Assembler::RSI(),
-            Assembler::addressMov(Assembler::RDI()),
-            L"مقارنة رقم العنصر مع سعة المصفوفة"
-        );
-        auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
-        *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
-        // TODO: Throw exception:
-        *currentAsmLabel+=Assembler::localLabel(endLabel);
-        *currentAsmLabel+=Assembler::lea(
-            Assembler::RSI(),
-            Assembler::addressLea(
-                Assembler::RDI().value+L"+8+"+Assembler::RSI().value+L"*"+std::to_wstring(arrayElementSize)
-            ),
-            Assembler::AsmInstruction::IMPLICIT,
-            L"الوصول لرقم العنصر في المصفوفة"
-        );
-        *currentAsmLabel+=Assembler::mov(
-            Assembler::addressMov(Assembler::RSI()),
-            Assembler::RAX(arrayElementSize),
-            Assembler::AsmInstruction::IMPLICIT,
-            L"تخصيص العنصر في المصفوفة"
-        );
+        addArraySetOpAsm(arrayElementSize);
         return;
     }
 
@@ -1376,4 +1415,61 @@ void Compiler::rightAssign(IExpression* ex){
         return;
     }
    throw("Not accessible");
+}
+
+void Compiler::addArrayGetOpAsm(int arrayElementSize){
+    *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The array pointer which is first arg pushed as if get is a binary operator
+    *currentAsmLabel+=Assembler::localLabel(L"if"+std::to_wstring(++currentIfLabelsSize));
+    *currentAsmLabel+=Assembler::cmp(
+        Assembler::RSI(),
+        Assembler::addressMov(Assembler::RDI()),
+        L"مقارنة رقم العنصر مع سعة المصفوفة"
+    );
+    auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
+    *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
+    // TODO: Throw exception:
+    *currentAsmLabel+=Assembler::localLabel(endLabel);
+    *currentAsmLabel+=Assembler::lea(
+        Assembler::RSI(),
+        Assembler::addressLea(
+            Assembler::RDI().value+L"+8+"+Assembler::RAX().value+L"*"+std::to_wstring(arrayElementSize)
+        ),
+        Assembler::AsmInstruction::IMPLICIT,
+        L"الوصول لرقم العنصر في المصفوفة"
+    );
+    *currentAsmLabel+=Assembler::mov(
+        Assembler::RAX(arrayElementSize),
+        Assembler::addressMov(Assembler::RSI()),
+        Assembler::AsmInstruction::IMPLICIT,
+        L"الوصول للعنصر في المصفوفة"
+    );
+}
+
+void Compiler::addArraySetOpAsm(int arrayElementSize){
+    *currentAsmLabel+=Assembler::pop(Assembler::RSI()); // The index arg
+    *currentAsmLabel+=Assembler::pop(Assembler::RDI()); // The array pointer arg
+    *currentAsmLabel+=Assembler::localLabel(L"if"+std::to_wstring(++currentIfLabelsSize));
+    *currentAsmLabel+=Assembler::cmp(
+        Assembler::RSI(),
+        Assembler::addressMov(Assembler::RDI()),
+        L"مقارنة رقم العنصر مع سعة المصفوفة"
+    );
+    auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
+    *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
+    // TODO: Throw exception:
+    *currentAsmLabel+=Assembler::localLabel(endLabel);
+    *currentAsmLabel+=Assembler::lea(
+        Assembler::RSI(),
+        Assembler::addressLea(
+            Assembler::RDI().value+L"+8+"+Assembler::RSI().value+L"*"+std::to_wstring(arrayElementSize)
+        ),
+        Assembler::AsmInstruction::IMPLICIT,
+        L"الوصول لرقم العنصر في المصفوفة"
+    );
+    *currentAsmLabel+=Assembler::mov(
+        Assembler::addressMov(Assembler::RSI()),
+        Assembler::RAX(arrayElementSize),
+        Assembler::AsmInstruction::IMPLICIT,
+        L"تخصيص العنصر في المصفوفة"
+    );
 }
