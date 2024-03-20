@@ -94,6 +94,20 @@ class Compiler:public ASTVisitor{
         void addArrayGetOpAsm(int arrayElementSize);
         void addArraySetOpAsm(int arrayElementSize);
 
+        void compileBuiltInSetWithBuiltInAugOp(
+            SetOperatorExpression::Operator op,
+            int arrayElementSize,
+            SharedIExpression valueEx,
+            FunScope* funOfOp
+        );
+        
+        void compileBuiltInSetWithNonBuiltInAugOp(
+            SetOperatorExpression::Operator op,
+            int arrayElementSize,
+            SharedIExpression valueEx,
+            FunScope* funOfOp
+        );
+
     public:
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;
