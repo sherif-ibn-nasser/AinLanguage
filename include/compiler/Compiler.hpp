@@ -65,12 +65,14 @@ class Compiler:public ASTVisitor{
         std::unordered_map<Variable*, void*> inUseGlobalVariables; // The global variable that are accessed in the user code, we count them to optimize the asm
 
         FunScope* AIN_ALLOC=NULL;
+        FunScope* AIN_ALLOCATE_ARRAY=NULL;
 
         Assembler::AsmLabel* currentAsmLabel;
         Assembler::AsmLabel* startAsmLabel;
         Assembler::AsmLabel* initAsmLabel;
         
         void addAinAllocAsm();
+        void addAinAllocateArrayAsm();
         int getVariableSize(Variable* var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
         void optimizeConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");

@@ -383,7 +383,7 @@ void Compiler::visit(NewArrayExpression* ex){
 
         *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push the size arg for ainalloc
 
-        *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label));
+        *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label), L"استدعاء دالة احجز(كبير)");
 
         *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // the size arg for ainalloc
         *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // the user size
@@ -396,69 +396,24 @@ void Compiler::visit(NewArrayExpression* ex){
         return;
     }
 
-    /* TODO:
-    auto loopNumStr=std::to_wstring(++currentLoopLabelsSize);
-    auto loopLabelStr=L"loop"+loopNumStr;
-    auto continueLabelStr=L"continue"+loopNumStr;
-    auto breakLabelStr=L"break"+loopNumStr;
+    addAinAllocateArrayAsm();
+    
+    *currentAsmLabel+=Assembler::reserveSpaceOnStack(capExs.size()*8);
 
-    auto loopLabel=Assembler::localLabel(loopLabelStr);
-    auto continueLabel=Assembler::localLabel(continueLabelStr);
-    auto breakLabel=Assembler::localLabel(breakLabelStr);
     auto i=0;
     for(auto capEx:capExs){
         capEx->accept(this);
-        auto size=(i++==0)?L"*8+8":L"*8+24";
-        *currentAsmLabel+=Assembler::lea(
-            Assembler::RAX(),
-            Assembler::addressLea(Assembler::RAX().value+size)
-        );
-        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push the size ex
+        *currentAsmLabel+=Assembler::mov(Assembler::addressMov(Assembler::RSP(), i), Assembler::RAX());
+        i+=8;
     }
 
-    *currentAsmLabel+=Assembler::lea(
-        Assembler::RDI(),
-        Assembler::addressLea(
-            Assembler::RSP().value+L"+"+std::to_wstring(8*capExs.size()-8)
-        )
-    );
+    *currentAsmLabel+=Assembler::push(Assembler::imm(std::to_wstring(capExs.size())));
+    *currentAsmLabel+=Assembler::push(Assembler::RSP(), L"مُعامل الأبعاد: [كبير]"); // The array of dimensions args
+    *currentAsmLabel+=Assembler::push(Assembler::imm(std::to_wstring(elementSize)), L"مُعامل حجم_العنصر: كبير");
 
-    *currentAsmLabel+=Assembler::jmp(Assembler::label(L"."+continueLabelStr));
+    *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOCATE_ARRAY].label), L"استدعاء دالة احجز_مصفوفة([كيبر]، كبير)"); // call ainallocatearray
 
-    *currentAsmLabel+=loopLabel;
-
-    *currentAsmLabel+=Assembler::mul(
-        Assembler::addressMov(Assembler::RDI()),
-        Assembler::AsmInstruction::QWORD
-    );
-
-    *currentAsmLabel+=Assembler::lea(
-        Assembler::RDI(),
-        Assembler::addressLea(Assembler::RDI().value+L"-8")
-    );
-
-    *currentAsmLabel+=continueLabel;
-
-    *currentAsmLabel+=Assembler::cmp(Assembler::RDI(), Assembler::RSP());
-
-    *currentAsmLabel+=Assembler::jns(Assembler::label(L"."+loopLabelStr));
-
-    *currentAsmLabel+=breakLabel;
-
-    // FIXME: The size of bytes required for full multi-dimension array after splitting the big allocated block, i.e. the full size to call ainalloc on it
-
-
-    *currentAsmLabel+=Assembler::lea(
-        Assembler::RAX(),
-        Assembler::addressLea(
-            Assembler::RAX().value+L"*"+std::to_wstring(elementSize)
-        )
-    );
-
-    *currentAsmLabel+=Assembler::push(Assembler::RAX());
-
-    *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label));
-    */
+    *currentAsmLabel+=Assembler::removeReservedSpaceFromStack(capExs.size()*8+3*8); // remove also the args of ainalocatearray, i.e. the 3 pushed values
 
 }
 
@@ -1324,7 +1279,7 @@ void Compiler::addAinAllocAsm(){
 
     auto decl=FunDecl(
         std::make_shared<std::wstring>(L"احجز"),
-        Type::UNIT,
+        Type::LONG,
         std::make_shared<bool>(false),
         std::make_shared<std::vector<SharedFunParam>>(
             std::vector{
@@ -1348,6 +1303,43 @@ void Compiler::addAinAllocAsm(){
         return;
 
     AIN_ALLOC->accept(this);
+}
+
+void Compiler::addAinAllocateArrayAsm(){
+
+    if(AIN_ALLOCATE_ARRAY)
+        return;
+
+    auto decl=FunDecl(
+        std::make_shared<std::wstring>(L"احجز_مصفوفة"),
+        Type::LONG,
+        std::make_shared<bool>(false),
+        std::make_shared<std::vector<SharedFunParam>>(
+            std::vector{
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"الأبعاد"),
+                    std::make_shared<Type>(Type::Array(Type::LONG))
+                ),
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"حجم_العنصر"),
+                    Type::LONG
+                )
+            }
+        )
+    );
+
+    AIN_ALLOCATE_ARRAY=PackageScope::AIN_PACKAGE
+        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findPrivateFunction(decl.toString())
+        .get();
+
+    if(!AIN_ALLOCATE_ARRAY)
+        throw; // TODO: lib not found error
+
+    if(labelsAsm.find(AIN_ALLOCATE_ARRAY)!=labelsAsm.end())
+        return;
+
+    AIN_ALLOCATE_ARRAY->accept(this);
 }
 
 void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args){
