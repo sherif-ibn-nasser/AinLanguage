@@ -511,14 +511,41 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         PRINT_NAME,
         Type::UNIT,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        PRINT_INVOKE_INTERPRETER_FUN
+        PRINT_INVOKE_INTERPRETER_FUN,
+        false,
+        [](){
+            return std::vector{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RDI(), Assembler::imm(L"1")),
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+16")),
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX(), 8)),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")),
+                Assembler::syscall(L"طباعة نص")
+            };
+        }
     );
 
     auto PRINTLN_STRING=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
         Type::UNIT,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
+        PRINTLN_INVOKE_INTERPRETER_FUN,
+        false,
+        [](){
+            return std::vector{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RDI(), Assembler::imm(L"1")),
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+16")),
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX(), 8)),
+                Assembler::lea(Assembler::R8(), Assembler::addressLea(Assembler::RAX().value+L"+16+"+Assembler::RDX().value)),
+                Assembler::mov(Assembler::R9(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::R8())),
+                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::imm(L"0x0a"), Assembler::AsmInstruction::BYTE),
+                Assembler::add(Assembler::RDX(), Assembler::imm(L"1")),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")),
+                Assembler::syscall(L"طباعة نص"),
+                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::R9(Assembler::AsmInstruction::BYTE))
+            };
+        }
     );
 
     auto PRINT_BOOL=std::make_shared<BuiltInFunScope>(

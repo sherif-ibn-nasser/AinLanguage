@@ -11,8 +11,6 @@
 #include <string>
 class CompilerVarsOffsetSetter:public ASTVisitor{
     public:
-        int stmListScopeOffset;
-        int globalVarsCounter=0; // 1st address in data segment
         struct Offset{
             Offset(Assembler::AsmOperand reg, int value);
             Offset();
@@ -24,6 +22,9 @@ class CompilerVarsOffsetSetter:public ASTVisitor{
             std::unordered_map<Variable*, Offset>* offsets
         );
     private:
+        int stmListScopeOffset;
+        int globalVarsCounter=0; // 1st address in data segment
+        bool isStringHaveOffset=false; // string properties are in the offsets
         void offsetStmListScope(StmListScope* scope);
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;

@@ -1,4 +1,5 @@
 #include "Compiler.hpp"
+#include "AinException.hpp"
 #include "Assembler.hpp"
 #include "BaseScope.hpp"
 #include "BoolValue.hpp"
@@ -457,7 +458,51 @@ void Compiler::visit(LiteralExpression* ex){
     }
 
     else if(auto strVal=std::dynamic_pointer_cast<StringValue>(value)){
-        // TODO
+        auto wstr=strVal->toString();
+        auto str=std::string(toCharPointer(wstr));
+        auto capToAllocate=16;
+        for(;capToAllocate<str.size();capToAllocate*=2)
+            ;
+        auto sizeImm=Assembler::imm(std::to_wstring(str.size()));
+
+        addAinAllocAsm();
+        *currentAsmLabel+=Assembler::push(
+            Assembler::imm(std::to_wstring(capToAllocate+16)), // for capacity and size properties
+            L"مُعامل الحجم_بالبايت: كبير"
+        );
+        *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label), L"استدعاء دالة احجز(كبير)");
+        *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // size arg
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(Assembler::RAX()),
+            Assembler::imm(std::to_wstring(capToAllocate)),
+            Assembler::AsmInstruction::QWORD
+        );
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::addressMov(Assembler::RAX(), 8),
+            sizeImm,
+            Assembler::AsmInstruction::QWORD
+        );
+
+        for (auto i = 0; i < str.size(); i += 4) {
+            union double_bytes {
+                char cVal[4]={0};
+                int lVal;
+            } data;
+
+            auto substr=str.substr(i, 4);
+            auto j=0;
+            for(auto &c:substr)
+                data.cVal[j++]=c;
+            
+            auto subStrImm=Assembler::imm(std::to_wstring(data.lVal));
+            *currentAsmLabel+=Assembler::mov(
+                Assembler::addressMov(Assembler::RAX(), i+16),
+                subStrImm, Assembler::AsmInstruction::DWORD
+            );
+        }
+
+        return;
+
     }
 
     else
@@ -1297,7 +1342,7 @@ void Compiler::addAinAllocAsm(){
         .get();
 
     if(!AIN_ALLOC)
-        throw; // TODO: lib not found error
+        throw AinException(L"لم يتم العثور على الملف ainmem.ain في النظام.");
 
     if(labelsAsm.find(AIN_ALLOC)!=labelsAsm.end())
         return;
@@ -1334,7 +1379,7 @@ void Compiler::addAinAllocateArrayAsm(){
         .get();
 
     if(!AIN_ALLOCATE_ARRAY)
-        throw; // TODO: lib not found error
+        throw AinException(L"لم يتم العثور على الملف ainmem.ain في النظام.");
 
     if(labelsAsm.find(AIN_ALLOCATE_ARRAY)!=labelsAsm.end())
         return;
@@ -1517,7 +1562,7 @@ void Compiler::addArrayGetOpAsm(int arrayElementSize){
     );
     auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
     *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
-    // TODO: Throw exception:
+    // TODO: Throw exception asm:
     *currentAsmLabel+=Assembler::localLabel(endLabel);
     *currentAsmLabel+=Assembler::lea(
         Assembler::RSI(),
@@ -1546,7 +1591,7 @@ void Compiler::addArraySetOpAsm(int arrayElementSize){
     );
     auto endLabel=L"end"+std::to_wstring(currentIfLabelsSize);
     *currentAsmLabel+=Assembler::jl(Assembler::label(L"."+endLabel));
-    // TODO: Throw exception:
+    // TODO: Throw exception asm:
     *currentAsmLabel+=Assembler::localLabel(endLabel);
     *currentAsmLabel+=Assembler::lea(
         Assembler::RSI(),
