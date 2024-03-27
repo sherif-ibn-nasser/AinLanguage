@@ -85,7 +85,7 @@ class Compiler:public ASTVisitor{
 
         void addInstructionToConvertBetweenDataTypes(int fromSize, int toSize, bool isUnsigned);
 
-        void callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args);
+        void callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args, bool insideCall=false);
 
         void invokeNonStaticFun(NonStaticFunInvokeExpression* ex);
         void invokeNonStaticBuiltInFun(NonStaticFunInvokeExpression* ex);

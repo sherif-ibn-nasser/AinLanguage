@@ -20,3 +20,11 @@ SharedFunScope AugmentedAssignStatement::getOpFun()const{
 void AugmentedAssignStatement::setOpFun(SharedFunScope opFun){
     this->opFun=opFun;
 }
+
+void AugmentedAssignStatement::setOpFunExplicit(bool isOpFunExplicit){
+    this->explicitOpFun=isOpFunExplicit;
+}
+
+bool AugmentedAssignStatement::isOpFunExplicit(){
+    return this->explicitOpFun;
+}

@@ -458,9 +458,6 @@ SharedIStatement StmListParser::parseAsAssignStm(
         );
 
     auto lineNumber=iterator->lineNumber;
-    
-    if(!IExpression::isAssignableExpression(leftEx))
-        throw OnlyVariablesAreAssignableException(lineNumber);
 
     iterator->next();
     

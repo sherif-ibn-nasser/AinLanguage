@@ -179,6 +179,21 @@ void Compiler::visit(AssignStatement* stm){
 }
 
 void Compiler::visit(AugmentedAssignStatement* stm){
+    if (stm->isOpFunExplicit()) {
+
+        NonStaticFunInvokeExpression ex(
+            stm->getLineNumber(),
+            stm->getOpFun()->getName(),
+            std::make_shared<std::vector<SharedIExpression>>(std::vector{stm->getRight()}),
+            stm->getLeft()
+        );
+        ex.setFun(stm->getOpFun());
+        ex.setReturnType(stm->getOpFun()->getReturnType());
+
+        invokeNonStaticFun(&ex);
+
+        return;
+    }
     if(auto isBuiltIn=std::dynamic_pointer_cast<BuiltInFunScope>(stm->getOpFun())){
         leftAssign(stm->getLeft().get());
         *currentAsmLabel+=Assembler::push(Assembler::RAX());
@@ -352,15 +367,12 @@ void Compiler::visit(NewObjectExpression* ex){
     *currentAsmLabel+=Assembler::push(Assembler::imm(std::to_wstring(size))); // The size arg
     *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label)); // call ainalloc
     *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // The size arg
-    *currentAsmLabel+=Assembler::push(Assembler::RBX()); // The old address
-    *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX()); // The new address
 
     callFunAsm(
         ex->getConstructor().get(),
-        ex->getArgs()
+        ex->getArgs(),
+        true
     );
-
-    *currentAsmLabel+=Assembler::pop(Assembler::RBX()); // The old address
 }
 
 void Compiler::visit(NewArrayExpression* ex){
@@ -667,6 +679,33 @@ void Compiler::visit(OperatorFunInvokeExpression* ex){
 
 void Compiler::visit(SetOperatorExpression* ex){
     
+    if(ex->isOpFunExplicit()){
+        auto funOfGet=ex->getExOfGet()->getFun();
+        auto funOfOp=ex->getFunOfOp();
+
+        auto getEx=std::make_shared<NonStaticFunInvokeExpression>(
+            ex->getLineNumber(),
+            funOfGet->getName(),
+            std::make_shared<std::vector<SharedIExpression>>(std::vector{ex->getIndexEx()}),
+            ex->getExHasGetOp()
+        );
+        getEx->setFun(funOfGet);
+        getEx->setReturnType(funOfGet->getReturnType());
+
+        NonStaticFunInvokeExpression explicitAssignEx(
+            ex->getLineNumber(),
+            ex->getFunOfOp()->getName(),
+            std::make_shared<std::vector<SharedIExpression>>(std::vector{ex->getValueEx()}),
+            getEx
+        );
+        explicitAssignEx.setFun(funOfOp);
+        explicitAssignEx.setReturnType(funOfOp->getReturnType());
+
+        invokeNonStaticFun(&explicitAssignEx);
+
+        return;
+    }
+
     auto op=ex->getOp();
 
     auto funOfGet=ex->getExOfGet()->getFun().get();
@@ -1387,11 +1426,16 @@ void Compiler::addAinAllocateArrayAsm(){
     AIN_ALLOCATE_ARRAY->accept(this);
 }
 
-void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args){
+void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args, bool insideCall){
 
     auto params=fun->getParamsFromLocals();
     auto paramsDecl=fun->getDecl()->params;
     auto argsSize=getVariablesSize(params);
+
+    if(insideCall){
+        *currentAsmLabel+=Assembler::push(Assembler::RBX()); // The old address
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // inside ex address
+    }
 
     *currentAsmLabel+=Assembler::reserveSpaceOnStack(argsSize); // for args
 
@@ -1426,25 +1470,35 @@ void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args){
     else
         comment=L"استدعاء دالة "+decl->toString();
 
+    if(insideCall)
+        *currentAsmLabel+=Assembler::mov(
+            Assembler::RBX(),
+            Assembler::addressMov(Assembler::RSP(),argsSize)
+        );
+    
     *currentAsmLabel+=Assembler::call(
         Assembler::label(labelsAsm[fun].label),
         comment
     );
 
+    if(insideCall)
+        argsSize+=8; // remove more 8 byte for the size of inside ex address
+    
     *currentAsmLabel+=Assembler::removeReservedSpaceFromStack(argsSize);
+
+    if(insideCall)
+        *currentAsmLabel+=Assembler::pop(Assembler::RBX()); // The old address
 
     // The returned address is on RAX
 }
 
 void Compiler::invokeNonStaticFun(NonStaticFunInvokeExpression* ex){
     ex->getInside()->accept(this);
-
-    *currentAsmLabel+=Assembler::push(Assembler::RBX());
-    *currentAsmLabel+=Assembler::mov(Assembler::RBX(),Assembler::RAX());
-
-    callFunAsm(ex->getFun().get(), ex->getArgs());
-
-    *currentAsmLabel+=Assembler::pop(Assembler::RBX());
+    callFunAsm(
+        ex->getFun().get(),
+        ex->getArgs(),
+        true
+    );
 }
 
 void Compiler::invokeNonStaticBuiltInFun(NonStaticFunInvokeExpression* ex){
