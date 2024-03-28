@@ -137,7 +137,7 @@ void Compiler::visit(FunScope* scope){
 }
 
 void Compiler::visit(BuiltInFunScope* scope){
-    *currentAsmLabel+=scope->getGeneratedAsm();
+    *currentAsmLabel+=scope->getGeneratedAsm(this);
 }
 
 void Compiler::visit(LoopScope* scope){
@@ -190,7 +190,10 @@ void Compiler::visit(AugmentedAssignStatement* stm){
         ex.setFun(stm->getOpFun());
         ex.setReturnType(stm->getOpFun()->getReturnType());
 
-        invokeNonStaticFun(&ex);
+        if(stm->getLeft()->getReturnType()==Type::STRING)
+            invokeInsideString(&ex);
+        else
+            invokeNonStaticFun(&ex);
 
         return;
     }
@@ -472,29 +475,21 @@ void Compiler::visit(LiteralExpression* ex){
     else if(auto strVal=std::dynamic_pointer_cast<StringValue>(value)){
         auto wstr=strVal->toString();
         auto str=std::string(toCharPointer(wstr));
-        auto capToAllocate=16;
-        for(;capToAllocate<str.size();capToAllocate*=2)
-            ;
-        auto sizeImm=Assembler::imm(std::to_wstring(str.size()));
 
         addAinAllocAsm();
+        
         *currentAsmLabel+=Assembler::push(
-            Assembler::imm(std::to_wstring(capToAllocate+16)), // for capacity and size properties
+            Assembler::imm(std::to_wstring(str.size()+8)), // add 8 bytes for the size property
             L"مُعامل الحجم_بالبايت: كبير"
         );
         *currentAsmLabel+=Assembler::call(Assembler::label(labelsAsm[AIN_ALLOC].label), L"استدعاء دالة احجز(كبير)");
         *currentAsmLabel+=Assembler::pop(Assembler::RDX()); // size arg
+
         *currentAsmLabel+=Assembler::mov(
             Assembler::addressMov(Assembler::RAX()),
-            Assembler::imm(std::to_wstring(capToAllocate)),
+            Assembler::imm(std::to_wstring(str.size())),
             Assembler::AsmInstruction::QWORD
         );
-        *currentAsmLabel+=Assembler::mov(
-            Assembler::addressMov(Assembler::RAX(), 8),
-            sizeImm,
-            Assembler::AsmInstruction::QWORD
-        );
-
         for (auto i = 0; i < str.size(); i += 4) {
             union double_bytes {
                 char cVal[4]={0};
@@ -508,8 +503,9 @@ void Compiler::visit(LiteralExpression* ex){
             
             auto subStrImm=Assembler::imm(std::to_wstring(data.lVal));
             *currentAsmLabel+=Assembler::mov(
-                Assembler::addressMov(Assembler::RAX(), i+16),
-                subStrImm, Assembler::AsmInstruction::DWORD
+                Assembler::addressMov(Assembler::RAX(), i+8),
+                subStrImm,
+                Assembler::AsmInstruction::DWORD
             );
         }
 
@@ -579,6 +575,12 @@ void Compiler::visit(NonStaticVarAccessExpression* ex){
 }
 
 void Compiler::visit(NonStaticFunInvokeExpression* ex){
+
+    if(ex->getInside()->getReturnType()==Type::STRING){
+        invokeInsideString(ex);
+        return;
+    }
+
     if(auto builtIn=std::dynamic_pointer_cast<BuiltInFunScope>(ex->getFun())){
         invokeNonStaticBuiltInFun(ex);
         return;
@@ -587,6 +589,12 @@ void Compiler::visit(NonStaticFunInvokeExpression* ex){
 }
 
 void Compiler::visit(OperatorFunInvokeExpression* ex){
+
+    if(ex->getInside()->getReturnType()==Type::STRING){
+        invokeInsideString(ex);
+        return;
+    }
+
     if(auto builtIn=std::dynamic_pointer_cast<BuiltInFunScope>(ex->getFun())){
         invokeBuiltInOpFun(ex);
         return;
@@ -1356,10 +1364,10 @@ void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize,
     }
 }
 
-void Compiler::addAinAllocAsm(){
+std::wstring Compiler::addAinAllocAsm(){
 
     if(AIN_ALLOC)
-        return;
+        return labelsAsm[AIN_ALLOC].label;
 
     auto decl=FunDecl(
         std::make_shared<std::wstring>(L"احجز"),
@@ -1384,15 +1392,100 @@ void Compiler::addAinAllocAsm(){
         throw AinException(L"لم يتم العثور على الملف ainmem.ain في النظام.");
 
     if(labelsAsm.find(AIN_ALLOC)!=labelsAsm.end())
-        return;
+        return labelsAsm[AIN_ALLOC].label;
 
     AIN_ALLOC->accept(this);
+
+
+    return labelsAsm[AIN_ALLOC].label;
 }
 
-void Compiler::addAinAllocateArrayAsm(){
+std::wstring Compiler::addAinReAllocAsm(){
+
+    if(AIN_REALLOC)
+        return labelsAsm[AIN_REALLOC].label;
+
+    auto decl=FunDecl(
+        std::make_shared<std::wstring>(L"إعادة_حجز"),
+        Type::LONG,
+        std::make_shared<bool>(false),
+        std::make_shared<std::vector<SharedFunParam>>(
+            std::vector{
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"العنوان"),
+                    Type::LONG
+                ),
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"الحجم_الجديد_بالبايت"),
+                    Type::LONG
+                )
+            }
+        )
+    );
+
+    AIN_REALLOC=PackageScope::AIN_PACKAGE
+        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findPublicFunction(decl.toString())
+        .get();
+
+    if(!AIN_REALLOC)
+        throw AinException(L"لم يتم العثور على الملف ainmem.ain في النظام.");
+
+    if(labelsAsm.find(AIN_REALLOC)!=labelsAsm.end())
+        return labelsAsm[AIN_REALLOC].label;
+
+    AIN_REALLOC->accept(this);
+    
+    return labelsAsm[AIN_REALLOC].label;
+}
+
+std::wstring Compiler::addAinMemcpyAsm(){
+
+    if(AIN_MEMCPY)
+        return labelsAsm[AIN_MEMCPY].label;
+
+    auto decl=FunDecl(
+        std::make_shared<std::wstring>(L"انسخ"),
+        Type::LONG,
+        std::make_shared<bool>(false),
+        std::make_shared<std::vector<SharedFunParam>>(
+            std::vector{
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"من"),
+                    Type::LONG
+                ),
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"إلى"),
+                    Type::LONG
+                ),
+                std::make_shared<FunParam>(
+                    std::make_shared<std::wstring>(L"العدد"),
+                    Type::LONG
+                )
+            }
+        )
+    );
+
+    AIN_MEMCPY=PackageScope::AIN_PACKAGE
+        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findPublicFunction(decl.toString())
+        .get();
+
+    if(!AIN_MEMCPY)
+        throw AinException(L"لم يتم العثور على الملف ainmem.ain في النظام.");
+
+    if(labelsAsm.find(AIN_MEMCPY)!=labelsAsm.end())
+        return labelsAsm[AIN_MEMCPY].label;
+
+    AIN_MEMCPY->accept(this);
+
+    return labelsAsm[AIN_MEMCPY].label;
+}
+
+std::wstring Compiler::addAinAllocateArrayAsm(){
 
     if(AIN_ALLOCATE_ARRAY)
-        return;
+        return labelsAsm[AIN_ALLOCATE_ARRAY].label;
 
     auto decl=FunDecl(
         std::make_shared<std::wstring>(L"احجز_مصفوفة"),
@@ -1421,9 +1514,11 @@ void Compiler::addAinAllocateArrayAsm(){
         throw AinException(L"لم يتم العثور على الملف ainmem.ain في النظام.");
 
     if(labelsAsm.find(AIN_ALLOCATE_ARRAY)!=labelsAsm.end())
-        return;
+        return labelsAsm[AIN_ALLOCATE_ARRAY].label;
 
     AIN_ALLOCATE_ARRAY->accept(this);
+
+    return labelsAsm[AIN_ALLOCATE_ARRAY].label;
 }
 
 void Compiler::callFunAsm(FunScope* fun, SharedVector<SharedIExpression> args, bool insideCall){
@@ -1528,6 +1623,37 @@ void Compiler::invokeNonStaticBuiltInFun(NonStaticFunInvokeExpression* ex){
         default:
         break;
     }
+}
+
+void Compiler::invokeInsideString(NonStaticFunInvokeExpression* ex){
+    auto args=ex->getArgs();
+    auto fun=ex->getFun().get();
+
+    // This is needed as the functions inside string may be not the same of th ex, as BuiltInFunScope adds the same functions for string for every file
+    auto funInString=dynamic_cast<BuiltInFunScope*>(
+        Type::STRING->getClassScope()->findPublicFunction(fun->getDecl()->toString()).get()
+    );
+
+    ex->getInside()->accept(this);
+    for(auto arg:*args){
+        *currentAsmLabel+=Assembler::push(Assembler::RAX()); // push (inside expression or the index arg for set operator) to the stack
+        arg->accept(this);
+    }
+
+    // Last arg will be on RAX and the inside ex will be on the stack realtive to rsp
+
+    if(labelsAsm.find(funInString)==labelsAsm.end()){
+        auto asmOfFun=funInString->getGeneratedAsm(this);
+        labelsAsm[funInString].label=L"method"+std::to_wstring(++methodLabelsSize);
+        labelsAsm[funInString].comment=L"دالة "+*Type::STRING_NAME+L"::"+funInString->getDecl()->toString();
+        labelsAsm[funInString]+=asmOfFun;
+    }
+
+    *currentAsmLabel+=Assembler::call(
+        Assembler::label(labelsAsm[funInString].label),
+        L"استدعاء "+labelsAsm[funInString].comment
+    );
+
 }
 
 void Compiler::leftAssign(IExpression* ex){

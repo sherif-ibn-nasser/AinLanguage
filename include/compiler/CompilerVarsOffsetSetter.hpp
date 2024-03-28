@@ -24,7 +24,6 @@ class CompilerVarsOffsetSetter:public ASTVisitor{
     private:
         int stmListScopeOffset;
         int globalVarsCounter=0; // 1st address in data segment
-        bool isStringHaveOffset=false; // string properties are in the offsets
         void offsetStmListScope(StmListScope* scope);
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;

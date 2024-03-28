@@ -114,7 +114,7 @@ namespace Assembler {
     AsmInstruction pop(AsmOperand op, std::wstring comment=L"");
     AsmInstruction mov(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction lea(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
-    AsmInstruction add(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction add(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction sub(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _xor(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _or(AsmOperand d, AsmOperand s, std::wstring comment=L"");
@@ -133,6 +133,7 @@ namespace Assembler {
     AsmInstruction js(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jns(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jl(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction jge(AsmOperand label, std::wstring comment=L"");
     AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction dec(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction neg(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");

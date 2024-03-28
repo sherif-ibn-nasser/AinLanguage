@@ -4,9 +4,7 @@
 #include "LoopScope.hpp"
 #include "FunDecl.hpp"
 #include "FunParam.hpp"
-#include "StringClassScope.hpp"
 #include "Type.hpp"
-#include "ArrayClassScope.hpp"
 #include "Variable.hpp"
 #include <string>
 
@@ -24,13 +22,7 @@ CompilerVarsOffsetSetter::CompilerVarsOffsetSetter(
     std::unordered_map<Variable*, Offset>*offsets
 )
 :offsets(offsets)
-{
-    auto arrayCapacityProperty=Type::ARRAY_CLASS->getPublicVariables()->at(*ArrayClassScope::CAPACITY_NAME).get();
-    (*offsets)[arrayCapacityProperty]=Offset(
-        Assembler::RBX(),
-        0
-    );
-}
+{}
 
 void CompilerVarsOffsetSetter::offsetStmListScope(StmListScope* scope){
     auto locals=scope->getLocals();
@@ -95,33 +87,7 @@ void CompilerVarsOffsetSetter::visit(FileScope* scope){
 
 void CompilerVarsOffsetSetter::visit(ClassScope* scope){
 
-    auto stringClass=Type::STRING->getClassScope().get();
-
-    if(scope==stringClass){
-
-        if(isStringHaveOffset)
-            return;
-        
-        auto capacityProperty=stringClass->findPublicVariable(*StringClassScope::CAPACITY_NAME).get();
-
-        auto sizeProperty=stringClass->findPublicVariable(*StringClassScope::SIZE_NAME).get();
-
-        (*offsets)[capacityProperty]=Offset(
-            Assembler::RBX(),
-            0
-        );
-
-        (*offsets)[sizeProperty]=Offset(
-            Assembler::RBX(),
-            8
-        );
-
-        isStringHaveOffset=true;
-        return;
-
-    }
-
-    auto varsOffset=8; // for first offset before 8-byte RBX register, TODO: need to handle if the system is 32-bit
+    auto varsOffset=0; // for first offset before 8-byte RBX register, TODO: need to handle if the system is 32-bit
 
     for(auto varIt:*scope->getPublicVariables()){
         auto var=varIt.second.get();

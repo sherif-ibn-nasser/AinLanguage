@@ -6,6 +6,7 @@
 #include "ByteValue.hpp"
 #include "CharClassScope.hpp"
 #include "CharValue.hpp"
+#include "Compiler.hpp"
 #include "ContainsKufrOrUnsupportedCharacterException.hpp"
 #include "DoubleClassScope.hpp"
 #include "DoubleValue.hpp"
@@ -53,7 +54,7 @@ BuiltInFunScope::BuiltInFunScope(
     std::vector<std::pair<std::wstring, SharedType>>params,
     std::function<void(Interpreter*)> invokeOnInterpreterFun,
     bool isOperator,
-    std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm
+    std::function<std::vector<Assembler::AsmInstruction>(Compiler* compiler)> onGenerateAsm
 ):
     FunScope(
         0,
@@ -85,8 +86,8 @@ void BuiltInFunScope::invokeOnInterpreter(Interpreter* interpreter){
     invokeOnInterpreterFun(interpreter);
 }
 
-std::vector<Assembler::AsmInstruction> BuiltInFunScope::getGeneratedAsm(){
-    return onGenerateAsm();
+std::vector<Assembler::AsmInstruction> BuiltInFunScope::getGeneratedAsm(Compiler* compiler){
+    return onGenerateAsm(compiler);
 }
 
 void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
@@ -99,7 +100,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::syscall(),
@@ -116,7 +117,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RDI()),
                 Assembler::pop(Assembler::RAX()),
@@ -135,7 +136,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RSI()),
                 Assembler::pop(Assembler::RDI()),
@@ -156,7 +157,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RDX()),
                 Assembler::pop(Assembler::RSI()),
@@ -179,7 +180,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::R10()),
                 Assembler::pop(Assembler::RDX()),
@@ -204,7 +205,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::R8()),
                 Assembler::pop(Assembler::R10()),
@@ -231,7 +232,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::R9()),
                 Assembler::pop(Assembler::R8()),
@@ -253,7 +254,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RDI()),
                 Assembler::mov(Assembler::RSI(), Assembler::addressMov(Assembler::brk_end())),
@@ -274,7 +275,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::mov(Assembler::RDI(Assembler::AsmInstruction::DWORD), Assembler::addressMov(Assembler::RSP())),
                 Assembler::add(Assembler::RSP(), Assembler::imm(L"4")),
@@ -294,7 +295,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::mov(Assembler::RDI(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RSP())),
                 Assembler::add(Assembler::RSP(), Assembler::imm(L"1")),
@@ -314,7 +315,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RDI()),
                 Assembler::pop(Assembler::RAX()),
@@ -333,7 +334,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RDI()),
                 Assembler::pop(Assembler::RAX()),
@@ -351,7 +352,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RAX()))
@@ -367,7 +368,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         },
         [](Interpreter* interpreter){},
         false,
-        []()->std::vector<Assembler::AsmInstruction>{
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
             return{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::mov(Assembler::RAX(), Assembler::addressMov(Assembler::RAX()))
@@ -513,13 +514,13 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
         PRINT_INVOKE_INTERPRETER_FUN,
         false,
-        [](){
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::mov(Assembler::RDI(), Assembler::imm(L"1")),
-                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+16")),
-                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX(), 8)),
-                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")),
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // first char
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX())), // size
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")), // sys_write
                 Assembler::syscall(L"طباعة نص")
             };
         }
@@ -531,19 +532,19 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
         PRINTLN_INVOKE_INTERPRETER_FUN,
         false,
-        [](){
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::mov(Assembler::RDI(), Assembler::imm(L"1")),
-                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+16")),
-                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX(), 8)),
-                Assembler::lea(Assembler::R8(), Assembler::addressLea(Assembler::RAX().value+L"+16+"+Assembler::RDX().value)),
-                Assembler::mov(Assembler::R9(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::R8())),
-                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::imm(L"0x0a"), Assembler::AsmInstruction::BYTE),
-                Assembler::add(Assembler::RDX(), Assembler::imm(L"1")),
-                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")),
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // first char
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX())), // size
+                Assembler::lea(Assembler::R8(), Assembler::addressLea(Assembler::RAX().value+L"+8+"+Assembler::RDX().value)), // The address of the byte after the last char
+                Assembler::mov(Assembler::R9(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::R8())), // The byte after the last char
+                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::imm(L"0x0a"), Assembler::AsmInstruction::BYTE), // mov '\n' to the address of that byte
+                Assembler::add(Assembler::RDX(), Assembler::imm(L"1")), // add 1 for size for the '\n' char
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")), // sys_write
                 Assembler::syscall(L"طباعة نص"),
-                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::R9(Assembler::AsmInstruction::BYTE))
+                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::R9(Assembler::AsmInstruction::BYTE)) // restore the byte after the last char
             };
         }
     );
@@ -2740,7 +2741,57 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
             auto b=interpreter->CX->toString();
             interpreter->AX=std::make_shared<StringValue>(a+b);
         },
-        true
+        true,
+        [=](Compiler* compiler){
+            auto memcpyLabel=compiler->addAinMemcpyAsm();
+            auto allocLabel=compiler->addAinAllocAsm();
+
+            return std::vector{
+                Assembler::pop(Assembler::R10()), // The call address
+                Assembler::pop(Assembler::RDI()), // The address of first string (from the stack)
+                Assembler::mov(Assembler::R8(), Assembler::addressMov(Assembler::RDI())), // The size of first string
+                Assembler::mov(Assembler::R9(), Assembler::addressMov(Assembler::RAX())), // The size of second string
+
+                 // The total size after concatenation, add 8 bytes for the size property
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::R8().value+L"+8+"+Assembler::R9().value)),
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+8")), // the address of first char in first string
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // the address of first char in second string
+                
+                Assembler::push(Assembler::R10()), // The call address
+                Assembler::push(Assembler::imm(L"0")), // preserve space for the new allocated string (for final return)
+
+                Assembler::push(Assembler::RDI()), // preserve first string first char address (from arg for memcpy)
+                Assembler::push(Assembler::imm(L"0")), // preserve space for the new allocated string (to arg for memcpy)
+                Assembler::push(Assembler::R8()), // preserve the size of first string (size arg for memcpy)
+
+                Assembler::push(Assembler::RAX()), // preserve the address of second string (from arg for memcpy)
+                Assembler::push(Assembler::imm(L"0")), // preserve space for the new allocated string (to arg for memcpy)
+                Assembler::push(Assembler::R9()), // preserve the size of second string (size arg for memcpy)
+
+                Assembler::push(Assembler::RDX(), L"مُعامل الحجم_بالبايت"),
+                Assembler::call(Assembler::label(allocLabel), L"استدعاء دالة احجز(كبير)"),
+                Assembler::pop(Assembler::RDX()), // The total size + 8 bytes
+
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::RDX().value+L"-8")), // restore the total size after concatenation
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDX()), // Write the total size after concatenation
+
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),48), Assembler::RAX()), // write new string address for final return 
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // The pointer of first char in new allocated string
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),32), Assembler::RAX()), // write 'to' arg for first memcpy
+                Assembler::add(Assembler::RAX(), Assembler::addressMov(Assembler::RSP(), 24)), // The pointer of (the prev pointer + first string size)
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),8), Assembler::RAX()), // write 'to' arg for second memcpy
+
+                // second memcpy
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::removeReservedSpaceFromStack(24),
+                // first memcpy
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::removeReservedSpaceFromStack(24),
+
+                Assembler::pop(Assembler::RAX()), // final return
+                Assembler::ret()
+            };
+        }
     );
 
     auto PLUS_CHAR=std::make_shared<BuiltInFunScope>(

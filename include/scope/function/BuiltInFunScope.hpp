@@ -24,7 +24,7 @@ class Interpreter;
 class BuiltInFunScope:public FunScope{
     private:
         std::function<void(Interpreter*)> invokeOnInterpreterFun;
-        std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm;
+        std::function<std::vector<Assembler::AsmInstruction>(Compiler* compiler)> onGenerateAsm;
         
         static void addBuiltInFunctionsToByteClass();
         static void addBuiltInFunctionsToUByteClass();
@@ -255,7 +255,7 @@ class BuiltInFunScope:public FunScope{
             std::vector<std::pair<std::wstring, SharedType>> params,
             std::function<void(Interpreter*)> invokeOnInterpreterFun,
             bool isOperator=false,
-            std::function<std::vector<Assembler::AsmInstruction>()> onGenerateAsm=[]{
+            std::function<std::vector<Assembler::AsmInstruction>(Compiler* compiler)> onGenerateAsm=[](Compiler* compiler){
                 return std::vector<Assembler::AsmInstruction>{};
             } // TODO: the nullptr is temporary before implementing all functions
         );
@@ -264,7 +264,7 @@ class BuiltInFunScope:public FunScope{
 
         void invokeOnInterpreter(Interpreter* interpreter);
 
-        std::vector<Assembler::AsmInstruction> getGeneratedAsm();
+        std::vector<Assembler::AsmInstruction> getGeneratedAsm(Compiler* compiler);
 
         static void addBuiltInFunctionsTo(SharedFileScope fileScope);
 
@@ -290,7 +290,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getPlusFun(
             interpreter->AX=std::make_shared<ReturnValue>(a+b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 Assembler::lea(
@@ -319,7 +319,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getMinusFun(
             interpreter->AX=std::make_shared<ReturnValue>(a-b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{ 
                 Assembler::pop(Assembler::RCX()),
                 Assembler::neg(Assembler::RAX()),
@@ -349,7 +349,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getTimesFun(
             interpreter->AX=std::make_shared<ReturnValue>(a*b);
         },
         true,
-        [=]{
+        [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 (*returnType==*Type::UBYTE||*returnType==*Type::UINT||*returnType==*Type::ULONG)
@@ -377,7 +377,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getDivFun(
             interpreter->AX=std::make_shared<ReturnValue>(a/b);
         },
         true,
-        [=]{
+        [=](Compiler* compiler){
             return std::vector{
                 Assembler::zero(Assembler::RDX()),
                 Assembler::mov(Assembler::RCX(), Assembler::RAX()),
@@ -407,7 +407,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getModFun(
             interpreter->AX=std::make_shared<ReturnValue>(a%b);
         },
         true,
-        [=]{
+        [=](Compiler* compiler){
             return std::vector{
                 Assembler::zero(Assembler::RDX()),
                 Assembler::mov(Assembler::RCX(), Assembler::RAX()),
@@ -479,7 +479,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getShrFun(
             interpreter->AX=std::make_shared<ParamValue>(a>>b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 Assembler::shr(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE))
@@ -503,7 +503,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getShlFun(
             interpreter->AX=std::make_shared<ParamValue>(a<<b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 Assembler::shl(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE))
@@ -528,7 +528,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getBitAndFun(
             interpreter->AX=std::make_shared<ParamValue>(a&b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 Assembler::_and(Assembler::RAX(), Assembler::RCX())
@@ -553,7 +553,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getXorFun(
             interpreter->AX=std::make_shared<ParamValue>(a^b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 Assembler::_xor(Assembler::RAX(), Assembler::RCX())
@@ -578,7 +578,7 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getBitOrFun(
             interpreter->AX=std::make_shared<ParamValue>(a|b);
         },
         true,
-        []{
+        [](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
                 Assembler::_or(Assembler::RAX(), Assembler::RCX())

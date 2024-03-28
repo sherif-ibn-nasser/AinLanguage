@@ -65,14 +65,14 @@ class Compiler:public ASTVisitor{
         std::unordered_map<Variable*, void*> inUseGlobalVariables; // The global variable that are accessed in the user code, we count them to optimize the asm
 
         FunScope* AIN_ALLOC=NULL;
+        FunScope* AIN_REALLOC=NULL;
+        FunScope* AIN_MEMCPY=NULL;
         FunScope* AIN_ALLOCATE_ARRAY=NULL;
 
         Assembler::AsmLabel* currentAsmLabel;
         Assembler::AsmLabel* startAsmLabel;
         Assembler::AsmLabel* initAsmLabel;
         
-        void addAinAllocAsm();
-        void addAinAllocateArrayAsm();
         int getVariableSize(Variable* var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);
         void optimizeConditionalJumpInstruction(IExpression* condition, Assembler::AsmOperand label, std::wstring comment=L"");
@@ -89,6 +89,7 @@ class Compiler:public ASTVisitor{
 
         void invokeNonStaticFun(NonStaticFunInvokeExpression* ex);
         void invokeNonStaticBuiltInFun(NonStaticFunInvokeExpression* ex);
+        void invokeInsideString(NonStaticFunInvokeExpression* ex);
 
         void leftAssign(IExpression* ex);
         void rightAssign(IExpression* ex);
@@ -111,6 +112,12 @@ class Compiler:public ASTVisitor{
         );
 
     public:
+
+        std::wstring addAinAllocAsm();
+        std::wstring addAinReAllocAsm();
+        std::wstring addAinMemcpyAsm();
+        std::wstring addAinAllocateArrayAsm();
+
         void visit(PackageScope* scope)override;
         void visit(FileScope* scope)override;
         void visit(ClassScope* scope)override;

@@ -228,9 +228,10 @@ namespace Assembler {
         };
     }
 
-    AsmInstruction add(AsmOperand d, AsmOperand s, std::wstring comment){
+    AsmInstruction add(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::ADD,
+            .size=size,
             .operands={d, s},
             .comment=comment
         };
@@ -369,6 +370,14 @@ namespace Assembler {
     AsmInstruction jl(AsmOperand label, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::JL,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction jge(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JGE,
             .operands={label},
             .comment=comment
         };
@@ -635,7 +644,7 @@ namespace Assembler {
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment){
         if(size==0)
             return nop(comment);
-        return add(RSP(),imm(std::to_wstring(size)),comment);
+        return add(RSP(),imm(std::to_wstring(size)),AsmInstruction::IMPLICIT,comment);
     }
 
     std::vector<AsmInstruction> exit(int errorCode, std::wstring comment){
