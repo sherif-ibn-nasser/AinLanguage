@@ -481,7 +481,8 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getShrFun(
         true,
         [](Compiler* compiler){
             return std::vector{
-                Assembler::pop(Assembler::RCX()),
+                Assembler::mov(Assembler::RCX(), Assembler::RAX()),
+                Assembler::pop(Assembler::RAX()),
                 Assembler::shr(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE))
             };
         }
@@ -505,7 +506,8 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getShlFun(
         true,
         [](Compiler* compiler){
             return std::vector{
-                Assembler::pop(Assembler::RCX()),
+                Assembler::mov(Assembler::RCX(), Assembler::RAX()),
+                Assembler::pop(Assembler::RAX()),
                 Assembler::shl(Assembler::RAX(), Assembler::RCX(Assembler::AsmInstruction::BYTE))
             };
         }

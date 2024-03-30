@@ -30,6 +30,7 @@ namespace Assembler {
             LEA,
             ADD,
             SUB,
+            BSR,
             XOR,
             OR,
             AND,
@@ -116,6 +117,7 @@ namespace Assembler {
     AsmInstruction lea(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction add(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction sub(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction bsr(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _xor(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _or(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _and(AsmOperand d, AsmOperand s, std::wstring comment=L"");

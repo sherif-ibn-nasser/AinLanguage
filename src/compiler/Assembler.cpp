@@ -24,6 +24,8 @@ namespace Assembler {
                 text=L"add";break;
             case SUB:
                 text=L"sub";break;
+            case BSR:
+                text=L"bsr";break;
             case XOR:
                 text=L"xor";break;
             case OR:
@@ -240,6 +242,14 @@ namespace Assembler {
     AsmInstruction sub(AsmOperand d, AsmOperand s, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::SUB,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction bsr(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::BSR,
             .operands={d, s},
             .comment=comment
         };

@@ -2803,7 +2803,77 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
             auto b=interpreter->CX->toString();
             interpreter->AX=std::make_shared<StringValue>(a+b);
         },
-        true
+        true,
+        [=](Compiler* compiler){
+            auto memcpyLabel=compiler->addAinMemcpyAsm();
+            auto allocLabel=compiler->addAinAllocAsm();
+            std::wstring cntCharDoneLabel=L"cntCharDone";
+
+            return std::vector{
+                Assembler::pop(Assembler::R10()), // The call address
+                Assembler::pop(Assembler::RDI()), // The address of the string (from the stack)
+                
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RDI())), // The size of string
+                Assembler::mov(Assembler::RSI(), Assembler::RAX()), // The char
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+8")), // The pointer of first char in the string
+                
+                Assembler::_not(Assembler::RAX()),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RCX(), Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::sub(Assembler::RAX(), Assembler::RCX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jnz(Assembler::label(L"."+cntCharDoneLabel)),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")),
+                
+                Assembler::localLabel(cntCharDoneLabel),
+                Assembler::push(Assembler::R10()), // call address
+                Assembler::push(Assembler::imm(L"0")), // preserve space for new string for final return
+
+                Assembler::push(Assembler::RSI()), // char
+                Assembler::push(Assembler::RAX()), // char size
+
+                Assembler::push(Assembler::RDI()), // string first char address (from arg)
+                Assembler::push(Assembler::imm(L"0")), // preserve space for (to arg for memcpy)
+                Assembler::push(Assembler::RDX()), // string size
+
+                // new size of string + 8 bytes for size field
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RDX().value+L"+8+"+Assembler::RAX().value)),
+                Assembler::push(Assembler::RAX(), L"مُعامل الحجم_بالبايت"), // new size to allocate
+                Assembler::call(Assembler::label(allocLabel), L"استدعاء دالة احجز(كبير)"),
+                Assembler::pop(Assembler::RDX()), // The total size + 8 bytes
+
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::RDX().value+L"-8")), // restore the total size after concatenation
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDX()), // Write the total size after concatenation
+
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),40), Assembler::RAX()), // write new string address for final return 
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // The pointer of first char in new allocated string
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),8), Assembler::RAX()), // write 'to' arg for memcpy
+
+                // memcpy first string
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::pop(Assembler::RDX()), // size of string
+                Assembler::pop(Assembler::RDI()), // to arg
+                Assembler::pop(Assembler::RSI()), // from arg
+
+                Assembler::pop(Assembler::RCX()), // char size
+                Assembler::pop(Assembler::RAX()), // char
+
+                // The address to write the char in it
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+"+Assembler::RDX().value)),
+                // The address of char address + char size to preserve the content of it, as when writing a 3-byte char, this maybe destroy what after the char
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RDI().value+L"+"+Assembler::RCX().value)),
+                // Preserve what after the char address
+                Assembler::mov(Assembler::R8(), Assembler::addressMov(Assembler::RSI())),
+                // Write char
+                Assembler::mov(Assembler::addressMov(Assembler::RDI()), Assembler::RAX()),
+                // Write what after char (restore it)
+                Assembler::mov(Assembler::addressMov(Assembler::RSI()), Assembler::R8()),
+
+                Assembler::pop(Assembler::RAX()), // final return the new string
+                Assembler::ret()
+            };
+        }
     );
 
     auto EQUALS=std::make_shared<BuiltInFunScope>(
