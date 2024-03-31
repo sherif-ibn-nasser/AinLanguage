@@ -49,7 +49,6 @@ class Compiler:public ASTVisitor{
         int constructorLabelsSize=0; // for numbering labels for constructors
         int methodLabelsSize=0; // for numbering labels for methods in all classes
         int currentLoopLabelsSize=0; // for numbering labels for loops in a function
-        int currentIfLabelsSize=0; // for numbering labels for if statements in a function
         int currentLogicalShortcutsLabelsSize=0; // for numbering labels for logical shortcuts in a bool expression
         std::wstring dataAsm=
             L"section .data\n"
@@ -112,6 +111,7 @@ class Compiler:public ASTVisitor{
         );
 
     public:
+        int currentIfLabelsSize=0; // for numbering labels for if statements in a function
 
         std::wstring addAinAllocAsm();
         std::wstring addAinReAllocAsm();

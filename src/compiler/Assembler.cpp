@@ -26,6 +26,8 @@ namespace Assembler {
                 text=L"sub";break;
             case BSR:
                 text=L"bsr";break;
+            case BSF:
+                text=L"bsf";break;
             case XOR:
                 text=L"xor";break;
             case OR:
@@ -124,6 +126,8 @@ namespace Assembler {
                 text=L"cdq";break;
             case CMOVZ:
                 text=L"cmovz";break;
+            case CMOVNZ:
+                text=L"cmovnz";break;
             case CMOVS:
                 text=L"cmovs";break;
             case CMOVG:
@@ -250,6 +254,14 @@ namespace Assembler {
     AsmInstruction bsr(AsmOperand d, AsmOperand s, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::BSR,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction bsf(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::BSF,
             .operands={d, s},
             .comment=comment
         };
@@ -621,6 +633,15 @@ namespace Assembler {
     AsmInstruction cmovz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::CMOVZ,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cmovnz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CMOVNZ,
             .size=AsmInstruction::IMPLICIT,
             .operands={d,s},
             .comment=comment

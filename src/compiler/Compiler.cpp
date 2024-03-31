@@ -18,6 +18,7 @@
 #include "NonStaticFunInvokeExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "OperatorFunInvokeExpression.hpp"
+#include "OperatorFunctions.hpp"
 #include "PackageScope.hpp"
 #include "SetOperatorExpression.hpp"
 #include "SharedPtrTypes.hpp"
@@ -582,7 +583,12 @@ void Compiler::visit(NonStaticFunInvokeExpression* ex){
     }
 
     if(auto builtIn=std::dynamic_pointer_cast<BuiltInFunScope>(ex->getFun())){
-        invokeNonStaticBuiltInFun(ex);
+        if (*builtIn->getDecl()->isOperator)
+            invokeNonStaticBuiltInFun(ex);
+        else{
+            ex->getInside()->accept(this);
+            ex->getFun()->accept(this); // It will be inlined
+        }
         return;
     }
     invokeNonStaticFun(ex);
@@ -1324,21 +1330,30 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
 }
 
 void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize, bool isUnsigned){
+
+    if(isUnsigned){
+        switch (fromSize) {
+            case Assembler::AsmInstruction::BYTE:
+                *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"));
+                return;
+            case Assembler::AsmInstruction::WORD:
+                *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF"));
+                return;
+            case Assembler::AsmInstruction::DWORD:
+                *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF"));
+                return;
+        }
+    }
+
     switch (toSize) {
         case Assembler::AsmInstruction::QWORD:{
             switch (fromSize) {
                 case Assembler::AsmInstruction::BYTE:
                     *currentAsmLabel+=Assembler::cbw();
                 case Assembler::AsmInstruction::WORD:
-                    if(isUnsigned)
-                        *currentAsmLabel+=Assembler::cwd();
-                    else
-                        *currentAsmLabel+=Assembler::cwde();
+                    *currentAsmLabel+=Assembler::cwde();
                 case Assembler::AsmInstruction::DWORD:
-                    if(isUnsigned)
-                        *currentAsmLabel+=Assembler::cdq();
-                    else
-                        *currentAsmLabel+=Assembler::cdqe();
+                    *currentAsmLabel+=Assembler::cdqe();
             }
             break;
         }
@@ -1347,10 +1362,7 @@ void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize,
                 case Assembler::AsmInstruction::BYTE:
                     *currentAsmLabel+=Assembler::cbw();
                 case Assembler::AsmInstruction::WORD:
-                    if(isUnsigned)
-                        *currentAsmLabel+=Assembler::cwd();
-                    else
-                        *currentAsmLabel+=Assembler::cwde();
+                    *currentAsmLabel+=Assembler::cwde();
             }
             break;
         }
@@ -1641,6 +1653,11 @@ void Compiler::invokeInsideString(NonStaticFunInvokeExpression* ex){
     }
 
     // Last arg will be on RAX and the inside ex will be on the stack realtive to rsp
+
+    if(fun->getName()==OperatorFunctions::GET_NAME){
+        addArrayGetOpAsm(1); // To inline it
+        return;
+    }
 
     if(labelsAsm.find(funInString)==labelsAsm.end()){
         auto asmOfFun=funInString->getGeneratedAsm(this);

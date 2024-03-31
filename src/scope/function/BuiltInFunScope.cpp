@@ -632,6 +632,113 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
     
     using PrimitiveType=int;
 
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
 
     auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, ByteValue>(
         classScope,
@@ -898,6 +1005,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
     );
 
     auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
         MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
         TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
@@ -925,6 +1033,114 @@ void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
     
     using PrimitiveType=unsigned int;
 
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
 
     auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UByteValue>(
         classScope,
@@ -1105,6 +1321,7 @@ void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
     );
 
     auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_UBYTE,PLUS_UINT,PLUS_ULONG,
         MINUS_UBYTE,MINUS_UINT,MINUS_ULONG,
         TIMES_UBYTE,TIMES_UINT,TIMES_ULONG,
@@ -1130,6 +1347,114 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
     auto classScope=std::dynamic_pointer_cast<IntClassScope>(Type::INT->getClassScope());
     
     using PrimitiveType=int;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
 
     auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, IntValue>(
         classScope,
@@ -1396,6 +1721,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
     );
 
     auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
         MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
         TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
@@ -1422,6 +1748,114 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     auto classScope=std::dynamic_pointer_cast<UIntClassScope>(Type::UINT->getClassScope());
     
     using PrimitiveType=unsigned int;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
 
     auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UIntValue>(
         classScope,
@@ -1602,6 +2036,7 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     );
 
     auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_UBYTE,PLUS_UINT,PLUS_ULONG,
         MINUS_UBYTE,MINUS_UINT,MINUS_ULONG,
         TIMES_UBYTE,TIMES_UINT,TIMES_ULONG,
@@ -1627,6 +2062,110 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
     auto classScope=std::dynamic_pointer_cast<LongClassScope>(Type::LONG->getClassScope());
     
     using PrimitiveType=long long;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
 
     auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, LongValue>(
         classScope,
@@ -1879,6 +2418,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
     );
 
     auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
         MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
         TIMES_BYTE,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
@@ -1905,6 +2445,110 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     auto classScope=std::dynamic_pointer_cast<ULongClassScope>(Type::ULONG->getClassScope());
     
     using PrimitiveType=unsigned long long;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
 
     auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, ULongValue>(
         classScope,
@@ -2085,6 +2729,7 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     );
 
     auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_UBYTE,PLUS_UINT,PLUS_ULONG,
         MINUS_UBYTE,MINUS_UINT,MINUS_ULONG,
         TIMES_UBYTE,TIMES_UINT,TIMES_ULONG,
@@ -2876,6 +3521,15 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
         }
     );
 
+    auto GET=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::GET_NAME,
+        Type::UBYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::ULONG}},
+        [](Interpreter* interpreter){},
+        true
+        // The compilation is same as array
+    );
+
     auto EQUALS=std::make_shared<BuiltInFunScope>(
         OperatorFunctions::EQUALS_NAME,
         Type::BOOL,
@@ -3031,6 +3685,7 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
 
     auto funs={
         PLUS_STRING,PLUS_CHAR,
+        GET,
         EQUALS,
         TO_BYTE,TO_UBYTE,
         TO_INT,TO_UINT,

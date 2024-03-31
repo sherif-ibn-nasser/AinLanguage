@@ -31,6 +31,7 @@ namespace Assembler {
             ADD,
             SUB,
             BSR,
+            BSF,
             XOR,
             OR,
             AND,
@@ -80,6 +81,7 @@ namespace Assembler {
             CWD,
             CDQ,
             CMOVZ,
+            CMOVNZ,
             CMOVS,
             CMOVG,
         };
@@ -118,6 +120,7 @@ namespace Assembler {
     AsmInstruction add(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction sub(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction bsr(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction bsf(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _xor(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _or(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction _and(AsmOperand d, AsmOperand s, std::wstring comment=L"");
@@ -162,6 +165,7 @@ namespace Assembler {
     AsmInstruction cwd(std::wstring comment=L"");
     AsmInstruction cdq(std::wstring comment=L"");
     AsmInstruction cmovz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction cmovnz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction cmovs(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction cmovg(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
 
