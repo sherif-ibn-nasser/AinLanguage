@@ -1330,6 +1330,9 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
 }
 
 void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize, bool isUnsigned){
+    
+    if(toSize<=fromSize)
+        return;
 
     if(isUnsigned){
         switch (fromSize) {
@@ -1340,7 +1343,10 @@ void Compiler::addInstructionToConvertBetweenDataTypes(int fromSize, int toSize,
                 *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF"));
                 return;
             case Assembler::AsmInstruction::DWORD:
-                *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF"));
+                *currentAsmLabel+=Assembler::mov(
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD),
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD)
+                );
                 return;
         }
     }

@@ -168,6 +168,7 @@ int main(int argc, char * argv[]){
     // FIXME: Add those files to path
     filesStack.push_back(BuiltInFilePaths::AIN_MEM);
     filesStack.push_back(BuiltInFilePaths::AIN_IO);
+    filesStack.push_back(BuiltInFilePaths::CHARS_ITERATOR);
 
     try{
 

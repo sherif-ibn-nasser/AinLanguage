@@ -947,35 +947,71 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
-    auto TO_INT=getToIntFun<PrimitiveType>(classScope);
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde()
+            };
+        }
+    );
 
-    auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde()
+            };
+        }
+    );
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
     auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
 
     auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
-    auto TO_CHAR=std::make_shared<BuiltInFunScope>(
-        TO_CHAR_NAME,
-        Type::CHAR,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=std::dynamic_pointer_cast<ByteValue>(interpreter->AX)->getValue();
-            wchar_t charValue=static_cast<wchar_t>(val);
-            if(isKufrOrUnsupportedCharacter(charValue))
-                // TODO: show line number
-                throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
-            interpreter->AX=std::make_shared<CharValue>(charValue);
-        }
-    );
 
     auto SHR=getShrFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
 
@@ -1016,7 +1052,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,TO_CHAR,
+        TO_FLOAT,TO_DOUBLE,TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -1277,15 +1313,59 @@ void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
-    auto TO_INT=getToIntFun<PrimitiveType>(classScope);
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
 
-    auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
@@ -1663,15 +1743,37 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cdqe()
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cdqe()
+            };
+        }
+    );
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
@@ -1992,15 +2094,43 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::mov(
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD),
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD)
+                )
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::mov(
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD),
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD)
+                )
+            };
+        }
+    );
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
@@ -2374,15 +2504,15 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=getToLongFun<PrimitiveType>(classScope);
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=getToULongFun<PrimitiveType>(classScope);
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
@@ -2685,15 +2815,15 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=getToLongFun<PrimitiveType>(classScope);
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=getToULongFun<PrimitiveType>(classScope);
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
@@ -2942,7 +3072,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
@@ -3170,7 +3300,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
 
     auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
 
-    auto TO_UBYTE=getToByteFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
 
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
