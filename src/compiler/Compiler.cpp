@@ -191,46 +191,76 @@ void Compiler::visit(AugmentedAssignStatement* stm){
         ex.setFun(stm->getOpFun());
         ex.setReturnType(stm->getOpFun()->getReturnType());
 
-        if(stm->getLeft()->getReturnType()==Type::STRING)
-            invokeInsideString(&ex);
-        else
-            invokeNonStaticFun(&ex);
+        invokeNonStaticFun(&ex);
 
         return;
     }
-    if(auto isBuiltIn=std::dynamic_pointer_cast<BuiltInFunScope>(stm->getOpFun())){
+    auto isString=*stm->getLeft()->getReturnType()==*Type::STRING;
+
+    if(
+        std::dynamic_pointer_cast<BuiltInFunScope>(stm->getOpFun())
+        &&
+        !isString
+    ){
         leftAssign(stm->getLeft().get());
         *currentAsmLabel+=Assembler::push(Assembler::RAX());
         stm->getRight()->accept(this);
         stm->getOpFun()->accept(this);
         rightAssign(stm->getLeft().get());
     }else{
+        
         auto rightSize=Type::getSize(stm->getRight()->getReturnType().get());
         
-        *currentAsmLabel+=Assembler::push(Assembler::RBX());
         leftAssign(stm->getLeft().get());
+
+        *currentAsmLabel+=Assembler::push(Assembler::RAX());
         
-        *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RAX());
+        stm->getRight()->accept(this);
+
+        *currentAsmLabel+=Assembler::pop(Assembler::RDX());
+
+        *currentAsmLabel+=Assembler::push(Assembler::RBX());
+
+        *currentAsmLabel+=Assembler::mov(Assembler::RBX(), Assembler::RDX());
         
         *currentAsmLabel+=Assembler::reserveSpaceOnStack(rightSize);
-        stm->getRight()->accept(this);
+
         *currentAsmLabel+=
             Assembler::mov(
                 Assembler::addressMov(Assembler::RSP()),
                 Assembler::RAX(rightSize)
             );
+
         auto fun=stm->getOpFun().get();
-        if (labelsAsm.find(fun)==labelsAsm.end())
-            fun->accept(this);
+
+        if(isString)
+            fun=Type::STRING->getClassScope()->findPublicFunction(
+                fun->getDecl()->toString()
+                )
+                .get();
+
+        if (labelsAsm.find(fun)==labelsAsm.end()){
+            if(isString){
+                auto asmOfFun=dynamic_cast<BuiltInFunScope*>(fun)->getGeneratedAsm(this);
+                labelsAsm[fun].label=L"method"+std::to_wstring(++methodLabelsSize);
+                labelsAsm[fun].comment=L"دالة "+*Type::STRING_NAME+L"::"+fun->getDecl()->toString();
+                labelsAsm[fun]+=asmOfFun;
+            }
+            else
+                fun->accept(this);
+        }
+
         *currentAsmLabel+=Assembler::call(
             Assembler::label(labelsAsm[fun].label),
             L"استدعاء دالة "+fun->getParentScope()->getName()+L"::"+fun->getDecl()->toString()
         );
+
         Assembler::removeReservedSpaceFromStack(rightSize);
         
+        *currentAsmLabel+=Assembler::pop(Assembler::RBX());
+
         rightAssign(stm->getLeft().get());
 
-        *currentAsmLabel+=Assembler::pop(Assembler::RBX());
     }
 }
 
