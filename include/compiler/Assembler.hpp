@@ -103,6 +103,8 @@ namespace Assembler {
             SUBSS,
             MULSS,
             DIVSS,
+            ROUNDSD,
+            ROUNDSS,
         };
 
         enum InstructionSize{
@@ -207,6 +209,8 @@ namespace Assembler {
     AsmInstruction subss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction mulss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
     AsmInstruction divss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction roundsd(AsmOperand d, AsmOperand s, int roundingMode, std::wstring comment=L"");
+    AsmInstruction roundss(AsmOperand d, AsmOperand s, int roundingMode, std::wstring comment=L"");
 
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");

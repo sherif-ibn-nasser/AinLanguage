@@ -15,6 +15,7 @@
 #include "FunParam.hpp"
 #include "IntClassScope.hpp"
 #include "IntValue.hpp"
+#include "Interpreter.hpp"
 #include "KeywordToken.hpp"
 #include "LongClassScope.hpp"
 #include "LongValue.hpp"
@@ -577,6 +578,125 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
+    auto ROUND_FLOAT=std::make_shared<BuiltInFunScope>(
+        ROUND_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 0),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto ROUND_DOUBLE=std::make_shared<BuiltInFunScope>(
+        ROUND_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 0),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto FLOOR_FLOAT=std::make_shared<BuiltInFunScope>(
+        FLOOR_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 1),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto FLOOR_DOUBLE=std::make_shared<BuiltInFunScope>(
+        FLOOR_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 1),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto CEIL_FLOAT=std::make_shared<BuiltInFunScope>(
+        CEILING_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 2),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto CEIL_DOUBLE=std::make_shared<BuiltInFunScope>(
+        CEILING_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 2),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TRUNCATE_FLOAT=std::make_shared<BuiltInFunScope>(
+        TRUNCATE_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 4),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TRUNCATE_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TRUNCATE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 4),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
+    );
     auto builtInFunctions={
         SYSCALL0,
         SYSCALL1,
@@ -603,6 +723,8 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         PRINT_STRING,PRINTLN_STRING,
         PRINT_BOOL,PRINTLN_BOOL,
         PRINT_UNIT,PRINTLN_UNIT,
+        ROUND_FLOAT,FLOOR_FLOAT,CEIL_FLOAT,TRUNCATE_FLOAT,
+        ROUND_DOUBLE,FLOOR_DOUBLE,CEIL_DOUBLE,TRUNCATE_DOUBLE,
     };
     auto privateFunctions=fileScope->getPrivateFunctions();
     for(auto builtInFun:builtInFunctions){

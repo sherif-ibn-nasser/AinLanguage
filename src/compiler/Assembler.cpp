@@ -169,6 +169,10 @@ namespace Assembler {
                 text=L"mulss";break;
             case DIVSS:
                 text=L"divss";break;
+            case ROUNDSD:
+                text=L"roundsd";break;
+            case ROUNDSS:
+                text=L"roundss";break;
         }
 
         switch (size) {
@@ -862,6 +866,24 @@ namespace Assembler {
             .type=AsmInstruction::DIVSS,
             .size=AsmInstruction::IMPLICIT,
             .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction roundsd(AsmOperand d, AsmOperand s, int roundingMode, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::ROUNDSD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s, imm(std::to_wstring(roundingMode))},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction roundss(AsmOperand d, AsmOperand s, int roundingMode, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::ROUNDSS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s, imm(std::to_wstring(roundingMode))},
             .comment=comment
         };
     }

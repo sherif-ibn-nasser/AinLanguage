@@ -235,6 +235,10 @@ class BuiltInFunScope:public FunScope{
         static const inline auto READ_NAME=L"أدخل";
         static const inline auto PRINT_NAME=L"اظهر";
         static const inline auto PRINTLN_NAME=L"اظهر_";
+        static const inline auto ROUND_NAME=L"تقريب";
+        static const inline auto FLOOR_NAME=L"صحيح";
+        static const inline auto CEILING_NAME=L"سقف";
+        static const inline auto TRUNCATE_NAME=L"قطع";
         static const inline auto TO_BYTE_NAME=L"كبايت";
         static const inline auto TO_UBYTE_NAME=L"كبايت_م";
         static const inline auto TO_INT_NAME=L"كصحيح";
