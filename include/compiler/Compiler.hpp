@@ -68,9 +68,9 @@ class Compiler:public ASTVisitor{
         FunScope* AIN_MEMCPY=NULL;
         FunScope* AIN_ALLOCATE_ARRAY=NULL;
 
-        Assembler::AsmLabel* currentAsmLabel;
-        Assembler::AsmLabel* startAsmLabel;
-        Assembler::AsmLabel* initAsmLabel;
+        Assembler::AsmLabel* currentAsmLabel=NULL;
+        Assembler::AsmLabel* startAsmLabel=NULL;
+        Assembler::AsmLabel* initAsmLabel=NULL;
         
         int getVariableSize(Variable* var);
         int getVariablesSize(SharedMap<std::wstring, SharedVariable> vars);

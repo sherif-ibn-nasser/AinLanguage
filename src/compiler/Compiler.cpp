@@ -3,6 +3,7 @@
 #include "Assembler.hpp"
 #include "BaseScope.hpp"
 #include "BoolValue.hpp"
+#include "ByteValue.hpp"
 #include "CharValue.hpp"
 #include "DoubleValue.hpp"
 #include "FloatValue.hpp"
@@ -14,6 +15,7 @@
 #include "IfStatement.hpp"
 #include "IntValue.hpp"
 #include "KeywordToken.hpp"
+#include "LiteralExpression.hpp"
 #include "LongValue.hpp"
 #include "NonStaticFunInvokeExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
@@ -1153,9 +1155,44 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
     auto op=ex->getOp();
 
     auto inside=ex->getInside();
-    inside->accept(this);
     auto insideSize=Type::getSize(inside->getReturnType().get());
+
     auto argSize=0; // used for binary operators later
+
+    auto returnType=ex->getReturnType().get();
+    auto returnTypeSize=Type::getSize(returnType);
+    auto sizeAsm=Assembler::size(returnTypeSize);
+
+    if(op==OperatorFunInvokeExpression::Operator::UNARY_MINUS){
+        if(auto lit=std::dynamic_pointer_cast<LiteralExpression>(inside)){
+
+            SharedIValue ptrVal;
+            
+            if(auto bVal=std::dynamic_pointer_cast<ByteValue>(lit->getValue()))
+                ptrVal=std::make_shared<ByteValue>(-bVal->getValue());
+
+            else if(auto iVal=std::dynamic_pointer_cast<IntValue>(lit->getValue()))
+                ptrVal=std::make_shared<IntValue>(-iVal->getValue());
+
+            else if(auto lVal=std::dynamic_pointer_cast<LongValue>(lit->getValue()))
+                ptrVal=std::make_shared<LongValue>(-lVal->getValue());
+
+            else if(auto fVal=std::dynamic_pointer_cast<FloatValue>(lit->getValue()))
+                ptrVal=std::make_shared<FloatValue>(-fVal->getValue());
+
+            else if(auto dVal=std::dynamic_pointer_cast<DoubleValue>(lit->getValue()))
+                ptrVal=std::make_shared<DoubleValue>(-dVal->getValue());
+            
+            auto minusEx=LiteralExpression(
+                lit->getLineNumber(),
+                ptrVal
+            );
+
+            minusEx.accept(this);
+            return;
+        }
+    }
+    inside->accept(this);
 
     auto isUnsigned=
         *inside->getReturnType()==*Type::UBYTE
@@ -1165,32 +1202,33 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
         *inside->getReturnType()==*Type::ULONG
     ;
 
-    switch (op) {
-        case OperatorFunInvokeExpression::Operator::PLUS:
-        case OperatorFunInvokeExpression::Operator::MINUS:
-        case OperatorFunInvokeExpression::Operator::TIMES:
-        case OperatorFunInvokeExpression::Operator::DIV:
-        case OperatorFunInvokeExpression::Operator::MOD:
-        case OperatorFunInvokeExpression::Operator::XOR:
-        case OperatorFunInvokeExpression::Operator::BIT_OR:
-        case OperatorFunInvokeExpression::Operator::BIT_AND:
-        case OperatorFunInvokeExpression::Operator::SHR:
-        case OperatorFunInvokeExpression::Operator::SHL:
-        case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
-        case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
-        case OperatorFunInvokeExpression::Operator::LESS:
-        case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
-        case OperatorFunInvokeExpression::Operator::GREATER:
-        case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:{
-            argSize=Type::getSize((*ex->getArgs())[0]->getReturnType().get());
-            addInstructionToConvertBetweenDataTypes(insideSize, argSize, isUnsigned);
-        }
-        default:{}
-    }
+    auto isFloat=*returnType==*Type::FLOAT;
+    auto isDouble=*returnType==*Type::DOUBLE;
+    auto isFloatingPoint=isFloat||isDouble;
 
-    auto returnType=ex->getReturnType().get();
-    auto returnTypeSize=Type::getSize(returnType);
-    auto sizeAsm=Assembler::size(returnTypeSize);
+    if(!isFloatingPoint)
+        switch (op) {
+            case OperatorFunInvokeExpression::Operator::PLUS:
+            case OperatorFunInvokeExpression::Operator::MINUS:
+            case OperatorFunInvokeExpression::Operator::TIMES:
+            case OperatorFunInvokeExpression::Operator::DIV:
+            case OperatorFunInvokeExpression::Operator::MOD:
+            case OperatorFunInvokeExpression::Operator::XOR:
+            case OperatorFunInvokeExpression::Operator::BIT_OR:
+            case OperatorFunInvokeExpression::Operator::BIT_AND:
+            case OperatorFunInvokeExpression::Operator::SHR:
+            case OperatorFunInvokeExpression::Operator::SHL:
+            case OperatorFunInvokeExpression::Operator::EQUAL_EQUAL:
+            case OperatorFunInvokeExpression::Operator::NOT_EQUAL:
+            case OperatorFunInvokeExpression::Operator::LESS:
+            case OperatorFunInvokeExpression::Operator::LESS_EQUAL:
+            case OperatorFunInvokeExpression::Operator::GREATER:
+            case OperatorFunInvokeExpression::Operator::GREATER_EQUAL:{
+                argSize=Type::getSize((*ex->getArgs())[0]->getReturnType().get());
+                addInstructionToConvertBetweenDataTypes(insideSize, argSize, isUnsigned);
+            }
+            default:{}
+        }
 
     auto isPreInc=op==OperatorFunInvokeExpression::Operator::PRE_INC;
     auto isPreDec=op==OperatorFunInvokeExpression::Operator::PRE_DEC;
@@ -1203,6 +1241,28 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
 
         if(!IExpression::isAssignableExpression(inside)){
             // The inc/dec called as a function on non-assignable ex
+            if(isFloatingPoint){
+                *currentAsmLabel+=Assembler::mov(Assembler::RCX(), Assembler::imm(L"1"));
+                if(isFloat){
+                    *currentAsmLabel+=Assembler::movd(Assembler::XMM0(),Assembler::RAX(Assembler::AsmInstruction::DWORD));
+                    *currentAsmLabel+=Assembler::cvtsi2ss(Assembler::XMM1(),Assembler::RCX());
+                    if (isPreInc||isPostInc)
+                        *currentAsmLabel+=Assembler::addss(Assembler::XMM0(), Assembler::XMM1());
+                    else
+                        *currentAsmLabel+=Assembler::subss(Assembler::XMM0(), Assembler::XMM1());
+                    *currentAsmLabel+=Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0());
+                    return;
+                }
+                *currentAsmLabel+=Assembler::movq(Assembler::XMM0(),Assembler::RAX());
+                *currentAsmLabel+=Assembler::cvtsi2sd(Assembler::XMM1(),Assembler::RCX());
+                if (isPreInc||isPostInc)
+                    *currentAsmLabel+=Assembler::addsd(Assembler::XMM0(), Assembler::XMM1());
+                else
+                    *currentAsmLabel+=Assembler::subsd(Assembler::XMM0(), Assembler::XMM1());
+                *currentAsmLabel+=Assembler::movq(Assembler::RAX(), Assembler::XMM0());
+                return;
+            }
+
             if (isPreInc||isPostInc)
                 *currentAsmLabel+=Assembler::inc(Assembler::RAX());
             else
@@ -1227,19 +1287,72 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
         else if(isNonStaticVarAccessEx)
             (&instructions->back())->operands[0]=Assembler::RDX(lastInstructionRAXSize);
         
+        if(isFloatingPoint){
+            *currentAsmLabel+=Assembler::mov(Assembler::RCX(), Assembler::imm(L"1"));
+            if(isFloat){
+                *currentAsmLabel+=Assembler::movss(Assembler::XMM0(),lastInstruction.operands[1]);
+                *currentAsmLabel+=Assembler::cvtsi2ss(Assembler::XMM1(),Assembler::RCX());
+            }
+
+            else{
+                *currentAsmLabel+=Assembler::movsd(Assembler::XMM0(),lastInstruction.operands[1]);
+                *currentAsmLabel+=Assembler::cvtsi2sd(Assembler::XMM1(),Assembler::RCX());
+            }
+        }
+
+        if (isPreInc||isPostInc){
+            if(isFloat){
+                *currentAsmLabel+=Assembler::addss(Assembler::XMM0(), Assembler::XMM1());
+                *currentAsmLabel+=Assembler::movss(
+                    lastInstruction.operands[1],
+                    Assembler::XMM0(),
+                    Assembler::AsmInstruction::IMPLICIT,
+                    comment
+                );
+            }
+            else if (isDouble){
+                *currentAsmLabel+=Assembler::addsd(Assembler::XMM0(), Assembler::XMM1());
+                *currentAsmLabel+=Assembler::movsd(
+                    lastInstruction.operands[1],
+                    Assembler::XMM0(),
+                    Assembler::AsmInstruction::IMPLICIT,
+                    comment
+                );
+            }
+            else
+                *currentAsmLabel+=Assembler::inc(
+                    lastInstruction.operands[1],
+                    sizeAsm,
+                    comment
+                );
+        }
         
-        if (isPreInc||isPostInc)
-            *currentAsmLabel+=Assembler::inc(
-                lastInstruction.operands[1],
-                sizeAsm,
-                comment
-            );
-        else
-            *currentAsmLabel+=Assembler::dec(
-                lastInstruction.operands[1],
-                sizeAsm,
-                comment
-            );
+        else{
+            if(isFloat){
+                *currentAsmLabel+=Assembler::subss(Assembler::XMM0(), Assembler::XMM1());
+                *currentAsmLabel+=Assembler::movss(
+                    lastInstruction.operands[1],
+                    Assembler::XMM0(),
+                    Assembler::AsmInstruction::IMPLICIT,
+                    comment
+                );
+            }
+            else if (isDouble){
+                *currentAsmLabel+=Assembler::subsd(Assembler::XMM0(), Assembler::XMM1());
+                *currentAsmLabel+=Assembler::movsd(
+                    lastInstruction.operands[1],
+                    Assembler::XMM0(),
+                    Assembler::AsmInstruction::IMPLICIT,
+                    comment
+                );
+            }
+            else
+                *currentAsmLabel+=Assembler::dec(
+                    lastInstruction.operands[1],
+                    sizeAsm,
+                    comment
+                );
+        }
 
         
         if (isPreInc||isPreDec)
@@ -1266,26 +1379,18 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
         return;
     }
 
-    addInstructionToConvertBetweenDataTypes(argSize, insideSize, isUnsigned);
+    else if(isFloatingPoint){
+        ex->getFun()->accept(this);
+        return;
+    }
 
-    // TODO: optimize for imms
+    addInstructionToConvertBetweenDataTypes(argSize, insideSize, isUnsigned);
 
     switch(op){
         // args size is 0
         case OperatorFunInvokeExpression::Operator::UNARY_MINUS:{
-            auto instructions=&currentAsmLabel->instructions;
-            auto lastInstruction=&instructions->back();
-
-            // Optimize If It's a negative imm
-            if(lastInstruction->type!=Assembler::AsmInstruction::MOV){
-                *currentAsmLabel+=Assembler::neg(Assembler::RAX());
-                return;
-            }
-            auto lastSource=&lastInstruction->operands[1];
-            if(lastSource->type==Assembler::AsmOperand::IMM)
-                lastSource->value=L"-"+lastSource->value;
+            *currentAsmLabel+=Assembler::neg(Assembler::RAX());
             return;
-
         }
         case OperatorFunInvokeExpression::Operator::LOGICAL_NOT:{
             *currentAsmLabel+=Assembler::_and(Assembler::RAX(), Assembler::imm(L"1"));
@@ -1311,8 +1416,6 @@ void Compiler::invokeBuiltInOpFun(OperatorFunInvokeExpression* ex){
             ex->getFun()->accept(this);
             return;
 
-        // args size is 2
-        case OperatorFunInvokeExpression::Operator::SET_EQUAL:
         default:{}
     }
 

@@ -84,6 +84,25 @@ namespace Assembler {
             CMOVNZ,
             CMOVS,
             CMOVG,
+            // SIMD
+            MOVQ,
+            MOVD,
+            MOVSD,
+            MOVSS,
+            CVTSI2SD,
+            CVTSD2SI,
+            CVTSS2SD,
+            CVTSD2SS,
+            CVTSI2SS,
+            CVTSS2SI,
+            ADDSD,
+            SUBSD,
+            MULSD,
+            DIVSD,
+            ADDSS,
+            SUBSS,
+            MULSS,
+            DIVSS,
         };
 
         enum InstructionSize{
@@ -169,6 +188,26 @@ namespace Assembler {
     AsmInstruction cmovs(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction cmovg(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
 
+    // SIMD
+    AsmInstruction movq(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction movd(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction movsd(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction movss(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
+    AsmInstruction cvtsi2sd(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction cvtsd2si(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction cvtss2sd(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction cvtsd2ss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction cvtsi2ss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction cvtss2si(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction addsd(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction subsd(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction mulsd(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction divsd(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction addss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction subss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction mulss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+    AsmInstruction divss(AsmOperand d, AsmOperand s, std::wstring comment=L"");
+
     AsmInstruction reserveSpaceOnStack(int size, std::wstring comment=L"");
     AsmInstruction removeReservedSpaceFromStack(int size, std::wstring comment=L"");
     std::vector<AsmInstruction> exit(int errorCode, std::wstring comment=L"");
@@ -178,6 +217,8 @@ namespace Assembler {
     AsmOperand addressLea(std::wstring address);
     AsmOperand imm(std::wstring value);
 
+    AsmOperand XMM0();
+    AsmOperand XMM1();
     AsmOperand RAX(int size=AsmInstruction::QWORD);
     AsmOperand RBX(int size=AsmInstruction::QWORD);
     AsmOperand RCX(int size=AsmInstruction::QWORD);

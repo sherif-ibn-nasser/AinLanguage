@@ -132,6 +132,43 @@ namespace Assembler {
                 text=L"cmovs";break;
             case CMOVG:
                 text=L"cmovg";break;
+            // SIMD
+            case MOVQ:
+                text=L"movq";break;
+            case MOVD:
+                text=L"movd";break;
+            case MOVSD:
+                text=L"movsd";break;
+            case MOVSS:
+                text=L"movss";break;
+            case CVTSI2SD:
+                text=L"cvtsi2sd";break;
+            case CVTSD2SI:
+                text=L"cvtsd2si";break;
+            case CVTSS2SD:
+                text=L"cvtss2sd";break;
+            case CVTSD2SS:
+                text=L"cvtsd2ss";break;
+            case CVTSI2SS:
+                text=L"cvtsi2ss";break;
+            case CVTSS2SI:
+                text=L"cvtss2si";break;
+            case ADDSD:
+                text=L"addsd";break;
+            case SUBSD:
+                text=L"subsd";break;
+            case MULSD:
+                text=L"mulsd";break;
+            case DIVSD:
+                text=L"divsd";break;
+            case ADDSS:
+                text=L"addss";break;
+            case SUBSS:
+                text=L"subss";break;
+            case MULSS:
+                text=L"mulss";break;
+            case DIVSS:
+                text=L"divss";break;
         }
 
         switch (size) {
@@ -633,7 +670,7 @@ namespace Assembler {
     AsmInstruction cmovz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::CMOVZ,
-            .size=AsmInstruction::IMPLICIT,
+            .size=size,
             .operands={d,s},
             .comment=comment
         };
@@ -642,7 +679,7 @@ namespace Assembler {
     AsmInstruction cmovnz(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::CMOVNZ,
-            .size=AsmInstruction::IMPLICIT,
+            .size=size,
             .operands={d,s},
             .comment=comment
         };
@@ -651,7 +688,7 @@ namespace Assembler {
     AsmInstruction cmovs(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::CMOVS,
-            .size=AsmInstruction::IMPLICIT,
+            .size=size,
             .operands={d,s},
             .comment=comment
         };
@@ -660,6 +697,169 @@ namespace Assembler {
     AsmInstruction cmovg(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::CMOVG,
+            .size=size,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    // SIMD
+    
+    AsmInstruction movq(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MOVQ,
+            .size=size,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+    
+    AsmInstruction movd(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MOVD,
+            .size=size,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction movsd(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MOVSD,
+            .size=size,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+    AsmInstruction movss(AsmOperand d, AsmOperand s, AsmInstruction::InstructionSize size, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MOVSS,
+            .size=size,
+            .operands={d, s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cvtsi2sd(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CVTSI2SD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cvtsd2si(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CVTSD2SI,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cvtss2sd(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CVTSS2SD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cvtsd2ss(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CVTSD2SS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cvtsi2ss(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CVTSI2SS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction cvtss2si(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::CVTSS2SI,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction addsd(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::ADDSD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction subsd(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SUBSD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction mulsd(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MULSD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction divsd(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::DIVSD,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction addss(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::ADDSS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction subss(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::SUBSS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction mulss(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::MULSS,
+            .size=AsmInstruction::IMPLICIT,
+            .operands={d,s},
+            .comment=comment
+        };
+    }
+
+    AsmInstruction divss(AsmOperand d, AsmOperand s, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::DIVSS,
             .size=AsmInstruction::IMPLICIT,
             .operands={d,s},
             .comment=comment
@@ -712,6 +912,14 @@ namespace Assembler {
 
     AsmOperand imm(std::wstring value){
         return AsmOperand{.type=AsmOperand::IMM, .value=value};
+    }
+
+    AsmOperand XMM0(){
+        return AsmOperand{.type=AsmOperand::REG, .value=L"XMM0"};
+    }
+
+    AsmOperand XMM1(){
+        return AsmOperand{.type=AsmOperand::REG, .value=L"XMM1"};
     }
 
     AsmOperand RAX(int size){
