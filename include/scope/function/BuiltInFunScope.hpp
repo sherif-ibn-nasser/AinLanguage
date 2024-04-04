@@ -250,6 +250,7 @@ class BuiltInFunScope:public FunScope{
         static const inline auto TO_BOOL_NAME=L"كمنطقي";
         static const inline auto TO_CHAR_NAME=L"كحرف";
         static const inline auto TO_STRING_NAME=L"كنص";
+        static const inline auto BIN_REPRESENTATION_NAME=L"تمثيل_ثنائي";
         static const inline auto LZCNT_NAME=L"أصفار_اليسار";
         static const inline auto TZCNT_NAME=L"أصفار_اليمين";
         static const inline auto LOCNT_NAME=L"آحاد_اليسار";

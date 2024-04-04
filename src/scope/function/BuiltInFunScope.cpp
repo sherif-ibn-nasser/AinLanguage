@@ -888,7 +888,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -908,7 +908,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -949,7 +949,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -969,7 +969,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -1010,7 +1010,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -1030,7 +1030,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -1071,7 +1071,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -1091,7 +1091,7 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -1842,7 +1842,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -1860,7 +1860,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -1899,7 +1899,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -1917,7 +1917,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -1957,7 +1957,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -1975,7 +1975,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -2014,7 +2014,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -2032,7 +2032,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -2215,6 +2215,13 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::INT
     );
 
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
+
     auto funs={
         LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
@@ -2228,7 +2235,8 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING,TO_CHAR,
-        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -2740,7 +2748,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -2758,7 +2766,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -2797,7 +2805,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -2815,7 +2823,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -2854,7 +2862,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -2872,7 +2880,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -2911,7 +2919,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
@@ -2929,7 +2937,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
@@ -3076,6 +3084,13 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
+
     auto funs={
         LZCNT,LOCNT,TZCNT,TOCNT,
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
@@ -3089,7 +3104,8 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,TO_STRING,
-        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -3444,7 +3460,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3464,7 +3480,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3482,7 +3498,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3500,7 +3516,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3517,7 +3533,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3535,7 +3551,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3555,7 +3571,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3573,7 +3589,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3591,7 +3607,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3608,7 +3624,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3626,7 +3642,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3646,7 +3662,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3664,7 +3680,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3682,7 +3698,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3699,7 +3715,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3717,7 +3733,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3737,7 +3753,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3755,7 +3771,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3773,7 +3789,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3790,7 +3806,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -3846,7 +3862,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         Type::FLOAT,
         std::vector<std::pair<std::wstring, SharedType>>(),
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::_xor(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::imm(L"0x80000000"))
@@ -3960,6 +3976,13 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
 
     auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
 
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
+
     auto funs={
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
         MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
@@ -3970,7 +3993,8 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING
+        TO_FLOAT,TO_DOUBLE,TO_STRING,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -3991,7 +4015,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4011,7 +4035,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4029,7 +4053,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4047,7 +4071,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4065,7 +4089,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4082,7 +4106,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4102,7 +4126,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4120,7 +4144,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4138,7 +4162,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4156,7 +4180,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4173,7 +4197,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4193,7 +4217,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4211,7 +4235,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4229,7 +4253,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4247,7 +4271,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4264,7 +4288,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4284,7 +4308,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4302,7 +4326,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4320,7 +4344,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4338,7 +4362,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::pop(Assembler::RCX()),
@@ -4393,7 +4417,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         Type::DOUBLE,
         std::vector<std::pair<std::wstring, SharedType>>(),
         [](Interpreter* interpreter){},
-        false,
+        true,
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::_xor(Assembler::RAX(), Assembler::imm(L"0x8000000000000000"))
@@ -4507,6 +4531,13 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
 
     auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
 
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
+
     auto funs={
         PLUS_BYTE,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
         MINUS_BYTE,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
@@ -4517,7 +4548,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING
+        TO_FLOAT,TO_DOUBLE,TO_STRING,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();

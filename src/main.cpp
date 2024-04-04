@@ -169,6 +169,7 @@ int main(int argc, char * argv[]){
     filesStack.push_back(BuiltInFilePaths::AIN_MEM);
     filesStack.push_back(BuiltInFilePaths::AIN_IO);
     filesStack.push_back(BuiltInFilePaths::CHARS_ITERATOR);
+    filesStack.push_back(BuiltInFilePaths::FREXP);
 
     try{
 
