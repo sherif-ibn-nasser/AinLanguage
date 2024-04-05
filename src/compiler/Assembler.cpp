@@ -9,6 +9,7 @@ namespace Assembler {
         std::wstring text;
         switch (this->type) {
             case LOCAL_LABEL:
+            case INLINE_ASM:
                 return operands[0].value;
             case NOP:
                 text=L"nop";break;
@@ -232,6 +233,16 @@ namespace Assembler {
             .type=AsmInstruction::LOCAL_LABEL,
             .operands={
                 Assembler::label(L"."+label+L":")
+            },
+            .comment=comment,
+        };
+    }
+
+    AsmInstruction inline_asm(std::wstring _asm, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::INLINE_ASM,
+            .operands={
+                imm(L"\t"+_asm)
             },
             .comment=comment,
         };

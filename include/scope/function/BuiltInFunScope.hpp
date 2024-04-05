@@ -226,19 +226,21 @@ class BuiltInFunScope:public FunScope{
         static const inline auto INDEX_PARAM_NAME=L"رقم_العنصر";
         static const inline auto VALUE_PARAM_NAME=L"القيمة";
         static const inline auto ADDRESS_PARAM_NAME=L"العنوان";
+        static const inline auto INLINE_ASM_NAME=L"أسيمبلي";
         static const inline auto SYSCALL_NAME=L"استدعاء";
         static const inline auto BRK_NAME=L"إزاحة_الذاكرة";
         static const inline auto WRITE_TO_ADDRESS_NAME=L"اكتب";
         static const inline auto READ_LONG_FROM_ADDRESS_NAME=L"اقرأ_كبير";
+        static const inline auto READ_INT_FROM_ADDRESS_NAME=L"اقرأ_بايت";
         static const inline auto READ_BYTE_FROM_ADDRESS_NAME=L"اقرأ_بايت";
         static const inline auto READ_LINE_NAME=L"أدخل_";
         static const inline auto READ_NAME=L"أدخل";
         static const inline auto PRINT_NAME=L"اظهر";
         static const inline auto PRINTLN_NAME=L"اظهر_";
         static const inline auto ROUND_NAME=L"تقريب";
-        static const inline auto FLOOR_NAME=L"صحيح";
-        static const inline auto CEILING_NAME=L"سقف";
-        static const inline auto TRUNCATE_NAME=L"قطع";
+        static const inline auto FLOOR_NAME=L"الطابق";
+        static const inline auto CEILING_NAME=L"السقف";
+        static const inline auto TRUNCATE_NAME=L"اقتطاع";
         static const inline auto TO_BYTE_NAME=L"كبايت";
         static const inline auto TO_UBYTE_NAME=L"كبايت_م";
         static const inline auto TO_INT_NAME=L"كصحيح";
@@ -278,6 +280,8 @@ class BuiltInFunScope:public FunScope{
         static void addBuiltInFunctionsTo(SharedFileScope fileScope);
 
         static void addBuiltInFunctionsToBuiltInClasses();
+
+        static std::shared_ptr<BuiltInFunScope> INLINE_ASM;
 };
 
 #include "Interpreter.hpp"

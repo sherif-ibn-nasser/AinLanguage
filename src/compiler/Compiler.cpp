@@ -387,7 +387,13 @@ void Compiler::visit(VarAccessExpression* ex){
 }
 
 void Compiler::visit(FunInvokeExpression* ex){
-
+    if(ex->getFun()==BuiltInFunScope::INLINE_ASM){
+        auto _asm=std::dynamic_pointer_cast<LiteralExpression>(ex->getArgs()->at(0));
+        if(!_asm)
+            throw AinException(L"في السطر"+std::to_wstring(ex->getLineNumber())+L"\nدالة تضمين الأسيمبلي يجب أن تستقبل نص محدد.");
+        *currentAsmLabel+=Assembler::inline_asm(_asm->getValue()->toString());
+        return;
+    }
     callFunAsm(
         ex->getFun().get(),
         ex->getArgs()

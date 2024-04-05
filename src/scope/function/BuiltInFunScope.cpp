@@ -83,6 +83,8 @@ BuiltInFunScope::BuiltInFunScope(
 
 BuiltInFunScope::~BuiltInFunScope(){}
 
+std::shared_ptr<BuiltInFunScope> BuiltInFunScope::INLINE_ASM=NULL;
+
 void BuiltInFunScope::invokeOnInterpreter(Interpreter* interpreter){
     invokeOnInterpreterFun(interpreter);
 }
@@ -93,6 +95,16 @@ std::vector<Assembler::AsmInstruction> BuiltInFunScope::getGeneratedAsm(Compiler
 
 void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
+    if(!INLINE_ASM)
+        INLINE_ASM=std::make_shared<BuiltInFunScope>(
+            INLINE_ASM_NAME,
+            Type::UNIT,
+            std::vector<std::pair<std::wstring, SharedType>>{
+                {STRING_PARAM_NAME,Type::STRING},
+            },
+            [](Interpreter* interpreter){}
+        );
+    
     auto SYSCALL0=std::make_shared<BuiltInFunScope>(
         SYSCALL_NAME,
         Type::LONG,
@@ -357,6 +369,22 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
             return{
                 Assembler::pop(Assembler::RAX()),
                 Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RAX()))
+            };
+        }
+    );
+
+    auto READ_INT_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_INT_FROM_ADDRESS_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::addressMov(Assembler::RAX()))
             };
         }
     );
@@ -698,6 +726,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
     auto builtInFunctions={
+        INLINE_ASM,
         SYSCALL0,
         SYSCALL1,
         SYSCALL2,
@@ -3882,8 +3911,9 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2si(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -3896,8 +3926,9 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2si(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -3910,8 +3941,8 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2si(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -3924,8 +3955,8 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2si(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -3938,8 +3969,8 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtss2si(Assembler::RAX(), Assembler::XMM0()),
             };
         }
     );
@@ -3952,8 +3983,8 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtss2si(Assembler::RAX(), Assembler::XMM0()),
             };
         }
     );
@@ -3968,8 +3999,8 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtss2sd(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtss2sd(Assembler::RAX(), Assembler::XMM0()),
             };
         }
     );
@@ -4420,7 +4451,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         true,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"0x8000000000000000"))
+                Assembler::mov(Assembler::RCX(), Assembler::imm(L"0x8000000000000000")),
+                Assembler::_xor(Assembler::RAX(), Assembler::RCX())
             };
         }
     );
@@ -4437,8 +4469,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -4451,8 +4483,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -4465,8 +4497,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -4479,8 +4511,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -4493,22 +4525,22 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(), Assembler::XMM0()),
             };
         }
     );
 
     auto TO_ULONG=std::make_shared<BuiltInFunScope>(
         TO_ULONG_NAME,
-        Type::LONG,
+        Type::ULONG,
         std::vector<std::pair<std::wstring, SharedType>>{},
         [](Interpreter* interpreter){},
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2si(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(), Assembler::XMM0()),
             };
         }
     );
@@ -4521,8 +4553,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::cvtsd2ss(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2ss(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
         }
     );
@@ -4582,6 +4614,19 @@ void BuiltInFunScope::addBuiltInFunctionsToBoolClass(){
         Type::BOOL
     );
 
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0x1"))
+            };
+        }
+    );
+
     auto TO_STRING=std::make_shared<BuiltInFunScope>(
         TO_STRING_NAME,
         Type::STRING,
@@ -4594,6 +4639,7 @@ void BuiltInFunScope::addBuiltInFunctionsToBoolClass(){
     auto funs={
         NOT,
         EQUALS,
+        TO_INT,
         TO_STRING,
     };
 

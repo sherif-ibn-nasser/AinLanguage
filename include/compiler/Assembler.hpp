@@ -23,6 +23,7 @@ namespace Assembler {
         // TODO: Add more instructions
         enum InstructionType{
             LOCAL_LABEL,
+            INLINE_ASM,
             NOP,
             PUSH,
             POP,
@@ -133,6 +134,7 @@ namespace Assembler {
     };
 
     AsmInstruction localLabel(std::wstring label, std::wstring comment=L"");
+    AsmInstruction inline_asm(std::wstring _asm, std::wstring comment=L"");
     AsmInstruction nop(std::wstring comment=L"");
     AsmInstruction push(AsmOperand op, std::wstring comment=L"");
     AsmInstruction pop(AsmOperand op, std::wstring comment=L"");
