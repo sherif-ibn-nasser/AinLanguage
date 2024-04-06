@@ -3999,8 +3999,9 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::cvtss2sd(Assembler::RAX(), Assembler::XMM0()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2sd(Assembler::XMM0(), Assembler::XMM0()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
             };
         }
     );
@@ -4554,7 +4555,8 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         [=](Compiler* compiler){
             return std::vector{
                 Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
-                Assembler::cvtsd2ss(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+                Assembler::cvtsd2ss(Assembler::XMM0(), Assembler::XMM0()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
             };
         }
     );

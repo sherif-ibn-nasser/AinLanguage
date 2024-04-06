@@ -242,7 +242,7 @@ namespace Assembler {
         return AsmInstruction{
             .type=AsmInstruction::INLINE_ASM,
             .operands={
-                imm(L"\t"+_asm)
+                imm(_asm)
             },
             .comment=comment,
         };
