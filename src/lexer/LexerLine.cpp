@@ -546,7 +546,6 @@ void LexerLine::getIntNumberToken(
 void LexerLine::getDoubleNumberToken(std::wstring* number){
     try{
         auto doubleNum=std::stod(*number);
-        *number=std::to_wstring(doubleNum);
     }
     catch(std::out_of_range e){
         throw OutOfRangeException(lineNumber,*number);
@@ -556,7 +555,6 @@ void LexerLine::getDoubleNumberToken(std::wstring* number){
 void LexerLine::getFloatNumberToken(std::wstring* number){
     try{
         auto floatNum=std::stof(*number);
-        *number=std::to_wstring(floatNum);
     }
     catch(std::out_of_range e){
         throw OutOfRangeException(lineNumber,*number);
