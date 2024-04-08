@@ -443,7 +443,7 @@ SCENARIO("Test LexerLine lexes a line", "[LexerLineTest.cpp]"){
 
         WHEN("line has keywords"){
             std::vector<KeywordToken> keywords={
-                KeywordToken::VAR,KeywordToken::VAL,KeywordToken::OPERATOR,KeywordToken::FUN,
+                KeywordToken::MUT,KeywordToken::LET,KeywordToken::OPERATOR,KeywordToken::FUN,
                 KeywordToken::RETURN,
                 KeywordToken::PACKAGE,KeywordToken::IMPORT,KeywordToken::CLASS,KeywordToken::INTERFACE,
                 KeywordToken::OBJECT,KeywordToken::NEW,
@@ -522,7 +522,7 @@ SCENARIO("Test LexerLine lexes a line", "[LexerLineTest.cpp]"){
                 LiteralToken(LiteralToken::STRING,L"\"ناجح\""),
                 SymbolToken::RIGHT_PARENTHESIS,
                 SymbolToken::LEFT_CURLY_BRACES,
-                KeywordToken::VAR,IdentifierTestToken(L"س"),SymbolToken::EQUAL,
+                KeywordToken::MUT,IdentifierTestToken(L"س"),SymbolToken::EQUAL,
                 NumberToken(NumberToken::DOUBLE,std::to_wstring(std::stold(L"5.23e12"))),
                 SymbolToken::RIGHT_CURLY_BRACES
             };

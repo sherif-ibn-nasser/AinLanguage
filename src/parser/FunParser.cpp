@@ -37,7 +37,7 @@ SharedFunScope FunParser::parse(){
         return nullptr;
     
     if(decl->hasImplicitReturnType())
-        decl->returnType=Type::UNIT;
+        decl->returnType=Type::VOID;
     
     auto funScope=std::make_shared<FunScope>(
         lineNumber,

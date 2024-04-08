@@ -57,6 +57,10 @@ void SemanticsChecksVisitor::visit(ClassScope* scope){
         ||
         scope==Type::UBYTE->getClassScope().get()
         ||
+        scope==Type::SHORT->getClassScope().get()
+        ||
+        scope==Type::USHORT->getClassScope().get()
+        ||
         scope==Type::INT->getClassScope().get()
         ||
         scope==Type::UINT->getClassScope().get()
@@ -65,7 +69,7 @@ void SemanticsChecksVisitor::visit(ClassScope* scope){
         ||
         scope==Type::ULONG->getClassScope().get()
         ||
-        scope==Type::UNIT->getClassScope().get()
+        scope==Type::VOID->getClassScope().get()
         ||
         scope==Type::DOUBLE->getClassScope().get()
         ||
@@ -260,12 +264,12 @@ void SemanticsChecksVisitor::visit(ReturnStatement* stm){
 
     auto funScope=BaseScope::getContainingFun(stm->getRunScope());
     
-    // Return statements in constructors should return Unit
+    // Return statements in constructors should return Void
     if(funScope->getDecl()->isConstructor()){
-        if(*exType!=*Type::UNIT)
+        if(*exType!=*Type::VOID)
             throw UnexpectedTypeException(
                 stm->getLineNumber(),
-                *Type::UNIT_NAME,
+                *Type::VOID_NAME,
                 *exType->getName()
             );
     }
@@ -860,11 +864,11 @@ void SemanticsChecksVisitor::checkOperatorFunReturnType(FunScope* scope){
             opName==OperatorFunctions::BIT_OR_ASSIGN_NAME
         )
         &&
-        returnType->getClassScope()!=Type::UNIT->getClassScope()
+        returnType->getClassScope()!=Type::VOID->getClassScope()
     )
         throw InvalidOperatorFunDeclarationException(
             L"دالة "+opName+
-            L" يجب أن ترجع قيمة من نوع "+*Type::UNIT_NAME
+            L" يجب أن ترجع قيمة من نوع "+*Type::VOID_NAME
         );
     
     auto parentClass=BaseScope::getContainingClass(scope->getParentScope());

@@ -24,7 +24,7 @@
 #include "StmListScope.hpp"
 #include "Type.hpp"
 #include "UnexpectedTokenException.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "VarStm.hpp"
 #include "Variable.hpp"
 #include "WhileStatement.hpp"
@@ -282,7 +282,7 @@ SharedIStatement StmListParser::parseReturnStatement(SharedStmListScope parentSc
     auto ex=expressionParserProvider(iterator,parentScope)->parse();
 
     if(!ex)
-        ex=std::make_shared<UnitExpression>(lineNumber);
+        ex=std::make_shared<VoidExpression>(lineNumber);
 
     return std::make_shared<ReturnStatement>(
         lineNumber,

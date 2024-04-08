@@ -118,7 +118,7 @@ void Compiler::visit(FunScope* scope){
     if(isConstructor)
         *currentAsmLabel+=Assembler::mov(Assembler::RAX(),Assembler::RBX());
 
-    else if(*scope->getReturnType()==*Type::UNIT)
+    else if(*scope->getReturnType()==*Type::VOID)
         *currentAsmLabel+=Assembler::zero(Assembler::RAX());
 
     *currentAsmLabel+=Assembler::mov(Assembler::RSP(), Assembler::RBP());
@@ -557,9 +557,7 @@ void Compiler::visit(LiteralExpression* ex){
     *currentAsmLabel+=Assembler::mov(Assembler::RAX(),imm);
 }
 
-void Compiler::visit(UnitExpression* ex){
-    *currentAsmLabel+=Assembler::zero(Assembler::RAX());
-}
+void Compiler::visit(VoidExpression* ex){}
 
 void Compiler::visit(LogicalExpression* ex){
 

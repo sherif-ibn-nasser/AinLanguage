@@ -382,16 +382,22 @@ NumberToken::NUMBER_TYPE LexerLine::skipAfterDecDigitArray(){
         skipAfterDigitArray(tokenEndIndex+1);
     }
 
-    if(std::towlower(charAt(tokenEndIndex+1))==L'e'){
+    if(std::towlower(charAt(tokenEndIndex+1))==L'ق'){
         numType=NumberToken::DOUBLE; // may be doesn't have a dot, so reassign it to DOUBLE
         // add 'e' symbol to the token
         tokenEndIndex++;
         skipDigitsAfterExponent();
     }
 
-    if(std::towlower(charAt(tokenEndIndex+1))==L'f'){
-        numType=NumberToken::FLOAT;
-        tokenEndIndex++; // add 'f' symbol to the token
+    if(std::towlower(charAt(tokenEndIndex+1))==L'ع'){
+        tokenEndIndex++; // add 'ع' symbol to the token
+        if(charAt(tokenEndIndex+1)==L'4'){
+            numType=NumberToken::FLOAT;
+            tokenEndIndex++; // add '4' symbol to the token
+        }
+        else if(charAt(tokenEndIndex+1)==L'8'){
+            tokenEndIndex++; // add '8' symbol to the token
+        }
     }
 
     wchar_t stopChar=std::towlower(charAt(tokenEndIndex+1));
@@ -409,7 +415,7 @@ NumberToken::NUMBER_TYPE LexerLine::skipAfterDecDigitArray(){
     
     // numType is int
     // checking for stopChar after unsigned, byte and long types is in getIntNumberToken
-    if(stopChar!=L'u'&&stopChar!=L'l'&&stopChar!=L'b')
+    if(stopChar!=L'م'&&stopChar!=L'ص')
         throw InvalidIdentifierNameException(lineNumber,getCurrentTokenVal()+stopChar); // append stopChar
     
     // Nothing happened, numType will be unsigned byte, unsigned int, unsigned long, byte or long in getIntNumberToken
@@ -460,13 +466,13 @@ void LexerLine::skipAfterDigitArray(int startFrom,NUM_SYS numSys){
         throw InvalidNumberSystemDigitException(lineNumber,getCurrentTokenVal()+charAt(startFrom)); // apend next char
 
     int i=startFrom+1;
-    while(i<line.size() && (isNumSysDigit(charAt(i))||charAt(i)==L'_'))
+    while(i<line.size() && (isNumSysDigit(charAt(i))||charAt(i)==L','))
         i++;
 
     tokenEndIndex=i-1;
 
-    // must be no underscore at the end of number
-    if(charAt(tokenEndIndex)==L'_')
+    // must be no commas at the end of number
+    if(charAt(tokenEndIndex)==L',')
         throw IllegalUnderscoreException(lineNumber,getCurrentTokenVal());
 
 }
@@ -494,47 +500,76 @@ void LexerLine::getIntNumberToken(
      * The unary minus from Parser may change the numType if the num reached the limits of int or long
     */
 
-    auto isUnsigned=charAt(tokenEndIndex+1)==L'U'||charAt(tokenEndIndex+1)==L'u';
-    if(isUnsigned){
-        *numType=
-        (num<=std::numeric_limits<unsigned int>::max())
-        ?NumberToken::UNSIGNED_INT
-        :NumberToken::UNSIGNED_LONG;
-        tokenEndIndex++; // append 'U' symbol to token
-    }
-    else{
-        *numType=
-        (num<=std::numeric_limits<int>::max())
-        ?NumberToken::INT
-        :(num<=std::numeric_limits<long long>::max())
-        ?NumberToken::LONG
-        :throw OutOfRangeException(lineNumber,getCurrentTokenVal());
-    }
+    if(charAt(tokenEndIndex+1)==L'م'){
 
-    auto isByte=charAt(tokenEndIndex+1)==L'B'||charAt(tokenEndIndex+1)==L'b';
-    if(isByte){
-        if(isUnsigned){
-            *numType=NumberToken::UNSIGNED_BYTE;
+        tokenEndIndex++; // append 'م' symbol to token
+        
+        if (charAt(tokenEndIndex+1)==L'8') {
+            *numType=NumberToken::UNSIGNED_LONG;
+            tokenEndIndex++; // append '8' symbol to token
+        }
+        else if (charAt(tokenEndIndex+1)==L'4') {
+            if(num>std::numeric_limits<unsigned int>::max())
+                throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+            *numType=NumberToken::UNSIGNED_INT;
+            tokenEndIndex++; // append '4' symbol to token
+        }
+        else if (charAt(tokenEndIndex+1)==L'2') {
+            if(num>std::numeric_limits<unsigned short>::max())
+                throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+            *numType=NumberToken::UNSIGNED_SHORT;
+            tokenEndIndex++; // append '2' symbol to token
+        }
+        else if (charAt(tokenEndIndex+1)==L'1') {
             if(num>std::numeric_limits<unsigned char>::max())
                 throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+            *numType=NumberToken::UNSIGNED_BYTE;
+            tokenEndIndex++; // append '1' symbol to token
         }
-        else {
-            *numType=NumberToken::BYTE;
+        else
+            *numType=(num<=std::numeric_limits<unsigned int>::max())
+            ?NumberToken::UNSIGNED_INT
+            :NumberToken::UNSIGNED_LONG;
+        
+    }
+    else if(charAt(tokenEndIndex+1)==L'ص'){
+        tokenEndIndex++; // append 'ص' symbol to token
+        
+        if (charAt(tokenEndIndex+1)==L'8') {
+            *numType=NumberToken::LONG;
+            tokenEndIndex++; // append '8' symbol to token
+        }
+        else if (charAt(tokenEndIndex+1)==L'4') {
+            if(num>std::numeric_limits<int>::max())
+                throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+            *numType=NumberToken::INT;
+            tokenEndIndex++; // append '4' symbol to token
+        }
+        else if (charAt(tokenEndIndex+1)==L'2') {
+            if(num>std::numeric_limits<short>::max())
+                throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+            *numType=NumberToken::SHORT;
+            tokenEndIndex++; // append '4' symbol to token
+        }
+        else if (charAt(tokenEndIndex+1)==L'1') {
             if(num>std::numeric_limits<char>::max())
                 throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+            *numType=NumberToken::BYTE;
+            tokenEndIndex++; // append '1' symbol to token
         }
-        tokenEndIndex++; // append 'B' symbol to token
+        else 
+            *numType=(num<=std::numeric_limits<int>::max())
+            ?NumberToken::INT
+            :NumberToken::LONG;
     }
-
-    auto isLong=charAt(tokenEndIndex+1)==L'L'||charAt(tokenEndIndex+1)==L'l';
-    if(isLong){
+    else
         *numType=
-        (isUnsigned)
-        ?NumberToken::UNSIGNED_LONG
-        :NumberToken::LONG;
-        tokenEndIndex++; // append 'L' symbol to token
-    }
-
+            (num<=std::numeric_limits<int>::max())
+            ?NumberToken::INT
+            :(num<=std::numeric_limits<long long>::max())
+            ?NumberToken::LONG
+            :throw OutOfRangeException(lineNumber,getCurrentTokenVal());
+    
     wchar_t stopChar=charAt(tokenEndIndex+1);
     
     if(isAinAlpha(stopChar))

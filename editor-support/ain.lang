@@ -79,7 +79,7 @@
       <keyword>إنشاء</keyword>
       <keyword>دالة</keyword>
       <keyword>كائن</keyword>
-      <keyword>ثابت</keyword>
+      <keyword>احجز</keyword>
       <keyword>متغير</keyword>
       <keyword>استيراد</keyword>
       <keyword>حزمة</keyword>
@@ -106,7 +106,7 @@
     <context id="expression" style-ref="keyword">
       <keyword>خطأ</keyword>
       <keyword>صواب</keyword>
-      <keyword>فراغ</keyword>
+      <keyword>صفر</keyword>
     </context>
 
     <context id="literal-identifier">
@@ -124,13 +124,13 @@
 
     <context id="numeric" style-ref="number">
       <match extended="true">
-        \b ( 0[xX] [0-9A-Fa-f][0-9A-Fa-f_]*[Uu]?[Ll]?   # hex literal
-           | 0[oO] [0-7][0-7_]*[Uu]?[Ll]?                 # octal literal
-           | 0[bB] [01][01_]*[Uu]?[Ll]?                 # binary literal
-           | ([0-9]+[Ee][-]?[0-9]+|
-              ([0-9]*\.[0-9]+|[0-9]+\.)([Ee][-]?[0-9]+)?)[fF]?|
-              [0-9]+[Ff]                 # floating-point literal
-           | [0-9][0-9_]*[Uu]?([Ll]|[Bb])?                # integer literal
+        \b ( 0[xX] [0-9A-Fa-f][0-9A-Fa-f_]*([مص][1248]?)?   # hex literal
+           | 0[oO] [0-7][0-7_]*([مص][1248]?)?                # octal literal
+           | 0[bB] [01][01_]*([مص][1248]?)?                # binary literal
+           | ([0-9]+[ق][-]?[0-9]+|
+              ([0-9]*\.[0-9]+|[0-9]+\.)([ق][-]?[0-9]+)?)(ع[48]?)?|
+              [0-9]+(ع[48]?)                 # floating-point literal
+           | [0-9][0-9_]*([مص][1248]?)?                # integer literal
            )
       </match>
     </context>
@@ -179,14 +179,18 @@
       <!-- ain -->
       <keyword>منطقي</keyword>
       <keyword>حرف</keyword>
-      <keyword>عشري_م</keyword>
-      <keyword>عشري</keyword>
-      <keyword>صحيح</keyword>
-      <keyword>صحيح_م</keyword>
-      <keyword>كبير</keyword>
-      <keyword>كبير_م</keyword>
+      <keyword>ع8</keyword>
+      <keyword>ع4</keyword>
+      <keyword>ص1</keyword>
+      <keyword>م1</keyword>
+      <keyword>ص2</keyword>
+      <keyword>م2</keyword>
+      <keyword>ص4</keyword>
+      <keyword>م4</keyword>
+      <keyword>ص8</keyword>
+      <keyword>م8</keyword>
       <keyword>نص</keyword>
-      <keyword>الوحدة</keyword>
+      <keyword>طبيعي</keyword>
     </context>
 
     <context id="ain" class="no-spell-check">

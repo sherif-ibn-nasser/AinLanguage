@@ -27,6 +27,7 @@
 #include "OperatorFunctions.hpp"
 #include "SetOperatorExpression.hpp"
 #include "SharedPtrTypes.hpp"
+#include "ShortValue.hpp"
 #include "StmListScope.hpp"
 #include "StringValue.hpp"
 #include "SymbolToken.hpp"
@@ -38,7 +39,8 @@
 #include "UIntValue.hpp"
 #include "ULongValue.hpp"
 #include "TokenIsNotAllowedHereException.hpp"
-#include "UnitExpression.hpp"
+#include "UShortValue.hpp"
+#include "VoidExpression.hpp"
 #include "VarAccessExpression.hpp"
 #include <algorithm>
 #include <cassert>
@@ -625,6 +627,16 @@ SharedIValue ExpressionParser::parseNumberValue(NumberToken::NUMBER_TYPE numType
 
         case NumberToken::UNSIGNED_BYTE:
             return std::make_shared<UByteValue>(
+                std::stoul(value)
+            );
+
+        case NumberToken::SHORT:
+            return std::make_shared<ShortValue>(
+                std::stoi(value)
+            );
+
+        case NumberToken::UNSIGNED_SHORT:
+            return std::make_shared<UShortValue>(
                 std::stoul(value)
             );
 

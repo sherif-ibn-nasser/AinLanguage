@@ -50,11 +50,13 @@ add_library(ainsrc
     src/expression/NewObjectExpression.cpp
     src/expression/value/LongValue.cpp
     src/expression/value/ByteValue.cpp
+    src/expression/value/UShortValue.cpp
     src/expression/value/FloatValue.cpp
     src/expression/value/IValue.cpp
+    src/expression/value/ShortValue.cpp
     src/expression/value/IntValue.cpp
-    src/expression/value/UnitValue.cpp
     src/expression/value/DoubleValue.cpp
+    src/expression/value/VoidValue.cpp
     src/expression/value/UByteValue.cpp
     src/expression/value/CharValue.cpp
     src/expression/value/RefValue.cpp
@@ -70,11 +72,11 @@ add_library(ainsrc
     src/expression/IExpression.cpp
     src/expression/LogicalExpression.cpp
     src/expression/NonStaticFunInvokeExpression.cpp
-    src/expression/UnitExpression.cpp
     src/expression/ThisFunInvokeExpression.cpp
     src/expression/ThisVarAccessExpression.cpp
     src/expression/SetOperatorExpression.cpp
     src/expression/LiteralExpression.cpp
+    src/expression/VoidExpression.cpp
     src/parser/elements/FunParam.cpp
     src/parser/elements/FunDecl.cpp
     src/parser/elements/Type.cpp

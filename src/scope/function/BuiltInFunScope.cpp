@@ -34,7 +34,7 @@
 #include "UIntValue.hpp"
 #include "ULongClassScope.hpp"
 #include "ULongValue.hpp"
-#include "UnitValue.hpp"
+#include "VoidValue.hpp"
 #include "ArrayClassScope.hpp"
 #include "Variable.hpp"
 #include "ainio.hpp"
@@ -99,7 +99,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
     if(!INLINE_ASM)
         INLINE_ASM=std::make_shared<BuiltInFunScope>(
             INLINE_ASM_NAME,
-            Type::UNIT,
+            Type::VOID,
             std::vector<std::pair<std::wstring, SharedType>>{
                 {STRING_PARAM_NAME,Type::STRING},
             },
@@ -282,7 +282,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto WRITE_CHAR_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{
             {ADDRESS_PARAM_NAME,Type::LONG},
             {CHAR_PARAM_NAME,Type::CHAR},
@@ -302,7 +302,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto WRITE_BYTE_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{
             {ADDRESS_PARAM_NAME,Type::LONG},
             {BYTE_PARAM_NAME,Type::BYTE},
@@ -322,7 +322,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto WRITE_LONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{
             {ADDRESS_PARAM_NAME,Type::LONG},
             {LONG_PARAM_NAME,Type::LONG},
@@ -341,7 +341,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto WRITE_ULONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
         WRITE_TO_ADDRESS_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{
             {ADDRESS_PARAM_NAME,Type::LONG},
             {ULONG_PARAM_NAME,Type::ULONG},
@@ -430,117 +430,117 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
     [](Interpreter* interpreter){
         auto msg=interpreter->top();
         ainprint(msg->toString(), false);
-        interpreter->AX=std::make_shared<UnitValue>();
+        interpreter->AX=std::make_shared<VoidValue>();
     };
 
     auto PRINTLN_INVOKE_INTERPRETER_FUN=
     [](Interpreter* interpreter){
         auto msg=interpreter->top();
         ainprint(msg->toString(), true);
-        interpreter->AX=std::make_shared<UnitValue>();
+        interpreter->AX=std::make_shared<VoidValue>();
     };
 
     auto PRINT_INT=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_INT=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_UINT=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{UINT_PARAM_NAME,Type::UINT}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_UINT=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{UINT_PARAM_NAME,Type::UINT}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_LONG=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME,Type::LONG}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_LONG=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME,Type::LONG}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_ULONG=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{ULONG_PARAM_NAME,Type::ULONG}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_ULONG=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{ULONG_PARAM_NAME,Type::ULONG}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_FLOAT=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_FLOAT=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_DOUBLE=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_DOUBLE=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_CHAR=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{CHAR_PARAM_NAME,Type::CHAR}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_CHAR=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{CHAR_PARAM_NAME,Type::CHAR}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINT_STRING=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
         PRINT_INVOKE_INTERPRETER_FUN,
         false,
@@ -558,7 +558,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto PRINTLN_STRING=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
         PRINTLN_INVOKE_INTERPRETER_FUN,
         false,
@@ -581,29 +581,29 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 
     auto PRINT_BOOL=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{BOOL_PARAM_NAME,Type::BOOL}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
     auto PRINTLN_BOOL=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{BOOL_PARAM_NAME,Type::BOOL}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
-    auto PRINT_UNIT=std::make_shared<BuiltInFunScope>(
+    auto PRINT_Void=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{UNIT_PARAM_NAME,Type::UNIT}},
+        Type::VOID,
+        std::vector<std::pair<std::wstring, SharedType>>{{VOID_PARAM_NAME,Type::VOID}},
         PRINT_INVOKE_INTERPRETER_FUN
     );
 
-    auto PRINTLN_UNIT=std::make_shared<BuiltInFunScope>(
+    auto PRINTLN_Void=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{UNIT_PARAM_NAME,Type::UNIT}},
+        Type::VOID,
+        std::vector<std::pair<std::wstring, SharedType>>{{VOID_PARAM_NAME,Type::VOID}},
         PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
@@ -752,7 +752,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         PRINT_CHAR,PRINTLN_CHAR,
         PRINT_STRING,PRINTLN_STRING,
         PRINT_BOOL,PRINTLN_BOOL,
-        PRINT_UNIT,PRINTLN_UNIT,
+        PRINT_Void,PRINTLN_Void,
         ROUND_FLOAT,FLOOR_FLOAT,CEIL_FLOAT,TRUNCATE_FLOAT,
         ROUND_DOUBLE,FLOOR_DOUBLE,CEIL_DOUBLE,TRUNCATE_DOUBLE,
     };
@@ -774,7 +774,7 @@ void BuiltInFunScope::addBuiltInFunctionsToBuiltInClasses() {
     addBuiltInFunctionsToBoolClass();
     addBuiltInFunctionsToCharClass();
     addBuiltInFunctionsToStringClass();
-    addBuiltInFunctionsToUnitClass();
+    addBuiltInFunctionsToVoidClass();
     addBuiltInFunctionsToArrayClass();
 }
 
@@ -5091,7 +5091,7 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
 
 }
 
-void BuiltInFunScope::addBuiltInFunctionsToUnitClass(){
+void BuiltInFunScope::addBuiltInFunctionsToVoidClass(){
 
     auto TO_STRING=std::make_shared<BuiltInFunScope>(
         TO_STRING_NAME,
@@ -5103,7 +5103,7 @@ void BuiltInFunScope::addBuiltInFunctionsToUnitClass(){
         }
     );
 
-    auto publicFuns=Type::UNIT->getClassScope()->getPublicFunctions();
+    auto publicFuns=Type::VOID->getClassScope()->getPublicFunctions();
    
     (*publicFuns)[TO_STRING->getDecl()->toString()]=TO_STRING;
 
@@ -5131,7 +5131,7 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
 
     auto SET=std::make_shared<BuiltInFunScope>(
         OperatorFunctions::SET_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{
             {INDEX_PARAM_NAME,Type::ULONG},
             {VALUE_PARAM_NAME,genericType},
@@ -5144,7 +5144,7 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
                 throw ArrayIndexOutOfRangeException(arraySize,index);
             auto value=interpreter->DX;
             interpreter->memory[arrayAddress+index+1]=value;
-            interpreter->AX=std::make_shared<UnitValue>();
+            interpreter->AX=std::make_shared<VoidValue>();
         },
         true
     );

@@ -5,9 +5,11 @@
 #include "SharedPtrTypes.hpp"
 #include "StringClassScope.hpp"
 #include "BoolClassScope.hpp"
-#include "UnitClassScope.hpp"
+#include "VoidClassScope.hpp"
 #include "ByteClassScope.hpp"
 #include "UByteClassScope.hpp"
+#include "ShortClassScope.hpp"
+#include "UShortClassScope.hpp"
 #include "IntClassScope.hpp"
 #include "UIntClassScope.hpp"
 #include "LongClassScope.hpp"
@@ -60,23 +62,25 @@ SharedWString Type::getName(){
     return name;
 }
 
-SharedWString Type::UNIT_NAME=std::make_shared<std::wstring>(L"الوحدة");
-SharedWString Type::BYTE_NAME=std::make_shared<std::wstring>(L"بايت");
-SharedWString Type::UBYTE_NAME=std::make_shared<std::wstring>(L"بايت_م");
-SharedWString Type::INT_NAME=std::make_shared<std::wstring>(L"صحيح");
-SharedWString Type::UINT_NAME=std::make_shared<std::wstring>(L"صحيح_م");
-SharedWString Type::LONG_NAME=std::make_shared<std::wstring>(L"كبير");
-SharedWString Type::ULONG_NAME=std::make_shared<std::wstring>(L"كبير_م");
-SharedWString Type::FLOAT_NAME=std::make_shared<std::wstring>(L"عشري");
-SharedWString Type::DOUBLE_NAME=std::make_shared<std::wstring>(L"عشري_م");
+SharedWString Type::VOID_NAME=std::make_shared<std::wstring>(L"طبيعي");
+SharedWString Type::BYTE_NAME=std::make_shared<std::wstring>(L"ص1");
+SharedWString Type::UBYTE_NAME=std::make_shared<std::wstring>(L"م1");
+SharedWString Type::SHORT_NAME=std::make_shared<std::wstring>(L"ص2");
+SharedWString Type::USHORT_NAME=std::make_shared<std::wstring>(L"م2");
+SharedWString Type::INT_NAME=std::make_shared<std::wstring>(L"ص4");
+SharedWString Type::UINT_NAME=std::make_shared<std::wstring>(L"م4");
+SharedWString Type::LONG_NAME=std::make_shared<std::wstring>(L"ص8");
+SharedWString Type::ULONG_NAME=std::make_shared<std::wstring>(L"م8");
+SharedWString Type::FLOAT_NAME=std::make_shared<std::wstring>(L"ع4");
+SharedWString Type::DOUBLE_NAME=std::make_shared<std::wstring>(L"ع8");
 SharedWString Type::CHAR_NAME=std::make_shared<std::wstring>(L"حرف");
 SharedWString Type::STRING_NAME=std::make_shared<std::wstring>(L"نص");
 SharedWString Type::BOOL_NAME=std::make_shared<std::wstring>(L"منطقي");
 SharedWString Type::ARRAY_NAME=std::make_shared<std::wstring>(L"مصفوفة");
 
-SharedType Type::UNIT=std::make_shared<Type>(
-    UNIT_NAME,
-    std::make_shared<UnitClassScope>()
+SharedType Type::VOID=std::make_shared<Type>(
+    VOID_NAME,
+    std::make_shared<VoidClassScope>()
 );
 
 SharedType Type::CHAR=std::make_shared<Type>(
@@ -87,6 +91,11 @@ SharedType Type::CHAR=std::make_shared<Type>(
 SharedType Type::BYTE=std::make_shared<Type>(
     BYTE_NAME,
     std::make_shared<ByteClassScope>()
+);
+
+SharedType Type::SHORT=std::make_shared<Type>(
+    SHORT_NAME,
+    std::make_shared<ShortClassScope>()
 );
 
 SharedType Type::INT=std::make_shared<Type>(
@@ -104,25 +113,26 @@ SharedType Type::FLOAT=std::make_shared<Type>(
     std::make_shared<FloatClassScope>()
 );
 
-// بايت موجب
 SharedType Type::UBYTE=std::make_shared<Type>(
     UBYTE_NAME,
     std::make_shared<UByteClassScope>()
 );
 
-// صحيح موجب
+SharedType Type::USHORT=std::make_shared<Type>(
+    USHORT_NAME,
+    std::make_shared<UShortClassScope>()
+);
+
 SharedType Type::UINT=std::make_shared<Type>(
     UINT_NAME,
     std::make_shared<UIntClassScope>()
 );
 
-// كبير موجب
 SharedType Type::ULONG=std::make_shared<Type>(
     ULONG_NAME,
     std::make_shared<ULongClassScope>()
 );
 
-// عشري مزدوج
 SharedType Type::DOUBLE=std::make_shared<Type>(
     DOUBLE_NAME,
     std::make_shared<DoubleClassScope>()
@@ -142,8 +152,9 @@ std::shared_ptr<ArrayClassScope> Type::ARRAY_CLASS=std::make_shared<ArrayClassSc
 
 void Type::addBuiltInClassesTo(SharedFileScope fileScope) {
     auto builtInCLasses={
-        UNIT,
+        VOID,
         BYTE,UBYTE,
+        SHORT,USHORT,
         INT,UINT,
         LONG,ULONG,
         FLOAT,DOUBLE,
@@ -213,6 +224,9 @@ int Type::getSize(Type *type_ptr){
     if (type==*Type::BOOL||type==*Type::BYTE||type==*Type::UBYTE)
         return 1;
     
+    if (type==*Type::SHORT||type==*Type::USHORT)
+        return 2;
+
     if (type==*Type::CHAR||type==*Type::FLOAT||type==*Type::INT||type==*Type::UINT)
         return 4;
 

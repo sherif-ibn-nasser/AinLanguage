@@ -26,7 +26,7 @@
 #include "NewObjectExpression.hpp"
 #include "NewArrayExpression.hpp"
 #include "LiteralExpression.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "LogicalExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "NonStaticFunInvokeExpression.hpp"
@@ -107,7 +107,7 @@ class Interpreter:public ASTVisitor{
         void visit(NewObjectExpression* ex)override;
         void visit(NewArrayExpression* ex)override;
         void visit(LiteralExpression* ex)override;
-        void visit(UnitExpression* ex)override;
+        void visit(VoidExpression* ex)override;
         void visit(LogicalExpression* ex)override;
         void visit(NonStaticVarAccessExpression* ex)override;
         void visit(NonStaticFunInvokeExpression* ex)override;

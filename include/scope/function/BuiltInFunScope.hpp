@@ -37,7 +37,7 @@ class BuiltInFunScope:public FunScope{
         static void addBuiltInFunctionsToBoolClass();
         static void addBuiltInFunctionsToCharClass();
         static void addBuiltInFunctionsToStringClass();
-        static void addBuiltInFunctionsToUnitClass();
+        static void addBuiltInFunctionsToVoidClass();
         static void addBuiltInFunctionsToArrayClass();
         void accept(ASTVisitor *visitor) override;
 
@@ -210,18 +210,18 @@ class BuiltInFunScope:public FunScope{
             std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
         );
 
-        static const inline auto BYTE_PARAM_NAME=L"_بايت";
-        static const inline auto UBYTE_PARAM_NAME=L"_بايت_م";
-        static const inline auto INT_PARAM_NAME=L"رقم_صحيح";
-        static const inline auto UINT_PARAM_NAME=L"رقم_صحيح_م";
-        static const inline auto LONG_PARAM_NAME=L"رقم_كبير";
-        static const inline auto ULONG_PARAM_NAME=L"رقم_كبير_م";
-        static const inline auto FLOAT_PARAM_NAME=L"رقم_عشري";
-        static const inline auto DOUBLE_PARAM_NAME=L"رقم_عشري_م";
+        static const inline auto BYTE_PARAM_NAME=L"_ص1";
+        static const inline auto UBYTE_PARAM_NAME=L"_م1";
+        static const inline auto INT_PARAM_NAME=L"_ص4";
+        static const inline auto UINT_PARAM_NAME=L"_م4";
+        static const inline auto LONG_PARAM_NAME=L"_ص8";
+        static const inline auto ULONG_PARAM_NAME=L"_م8";
+        static const inline auto FLOAT_PARAM_NAME=L"_ع4";
+        static const inline auto DOUBLE_PARAM_NAME=L"_ع8";
         static const inline auto CHAR_PARAM_NAME=L"_حرف";
         static const inline auto STRING_PARAM_NAME=L"_نص";
         static const inline auto BOOL_PARAM_NAME=L"_منطقي";
-        static const inline auto UNIT_PARAM_NAME=L"_الوحدة";
+        static const inline auto VOID_PARAM_NAME=L"_طبيعي";
         static const inline auto BIT_COUNT_PARAM_NAME=L"عدد_البتات";
         static const inline auto INDEX_PARAM_NAME=L"رقم_العنصر";
         static const inline auto VALUE_PARAM_NAME=L"القيمة";

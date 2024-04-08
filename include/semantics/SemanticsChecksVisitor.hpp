@@ -24,7 +24,7 @@
 #include "NewObjectExpression.hpp"
 #include "NewArrayExpression.hpp"
 #include "LiteralExpression.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "LogicalExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "NonStaticFunInvokeExpression.hpp"
