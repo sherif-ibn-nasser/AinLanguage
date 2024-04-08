@@ -358,7 +358,7 @@ void LexerLine::skipAfterNonDecIntDigitArray(NUM_SYS numSys){
 
     // user types 0b12, ob1a, 0O128, ,0b12s, 0xfg etc.
     if (
-        stopChar!=L'u'&&stopChar!=L'l'
+        stopChar!=L'م'&&stopChar!=L'ص'
         &&
         (
             (iswxdigit(stopChar) && numSys!=NUM_SYS::HEX)
