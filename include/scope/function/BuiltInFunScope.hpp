@@ -282,6 +282,7 @@ class BuiltInFunScope:public FunScope{
         static void addBuiltInFunctionsToBuiltInClasses();
 
         static std::shared_ptr<BuiltInFunScope> INLINE_ASM;
+        static std::shared_ptr<BuiltInFunScope> INT_TO_CHAR;
 };
 
 #include "Interpreter.hpp"

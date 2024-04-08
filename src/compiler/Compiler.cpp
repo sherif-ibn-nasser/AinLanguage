@@ -34,8 +34,7 @@
 #include "WhileStatement.hpp"
 #include "BuiltInFilePaths.hpp"
 #include "string_helper.hpp"
-#include <cassert>
-#include <cstddef>
+#include "wchar_t_helper.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -617,6 +616,203 @@ void Compiler::visit(NonStaticFunInvokeExpression* ex){
 
     if(ex->getInside()->getReturnType()==Type::STRING){
         invokeInsideString(ex);
+        return;
+    }
+
+    if(ex->getFun()==BuiltInFunScope::INT_TO_CHAR){
+        ex->getInside()->accept(this);
+        auto fun=BuiltInFunScope::INT_TO_CHAR.get();
+        auto comment=L"دالة "+*Type::INT_NAME+L"::"+fun->getDecl()->toString();
+        if (labelsAsm.find(fun)==labelsAsm.end()){
+            auto label=L"method"+std::to_wstring(++methodLabelsSize);
+            labelsAsm[fun]=Assembler::AsmLabel{.label=label, .comment=comment};
+            labelsAsm[fun]+=Assembler::inline_asm(
+                L"mov DWORD [utf8CvtIntToChar], EAX"
+                L"\n\tmovzx R8, BYTE [utf8CvtIntToChar+1]"
+                L"\n\ttest R8, R8"
+                L"\n\tjz .oneByte"
+                L"\n\tmovzx R8, BYTE [utf8CvtIntToChar+2]"
+                L"\n\ttest R8, R8"
+                L"\n\tjz .twoBytes"
+                L"\n\tmovzx R8, BYTE [utf8CvtIntToChar+3]"
+                L"\n\ttest R8, R8"
+                L"\n\tjz .threeBytes"
+                L"\n\n.fourBytes:"
+                L"\n\tbswap EAX"
+                L"\n\tmov R8, 4"
+                L"\n\tjmp .convertToUtf8"
+                L"\n\n.threeBytes:"
+                L"\n\tbswap EAX"
+                L"\n\tshr EAX, 8"
+                L"\n\tmov R8, 3"
+                L"\n\tjmp .convertToUtf8"
+                L"\n\n.twoBytes:"
+                L"\n\txchg al, ah"
+                L"\n\tmov R8, 2"
+                L"\n\tjmp .convertToUtf8"
+                L"\n\n.oneByte:"
+                L"\n\tmov R8, 1"
+                L"\n\n.convertToUtf8:"
+                L"\n\tmovzx R9, BYTE [utf8CvtIntToChar+R8-1]"
+                L"\n\tmov RDX, 0x1F"
+                L"\n\tlea RCX, [R8-2]"
+                L"\n\tshr RDX, CL"
+                L"\n\tand R9, RDX"
+                L"\n\tlea RCX, [R8*3-3]"
+                L"\n\tlea RCX, [RCX*2]"
+                L"\n\tshl R9, CL"
+                L"\n\tjmp .continue1"
+                L"\n\n.loop1:"
+                L"\n\tlea RCX, [RCX-6]"
+                L"\n\tmovzx R10, BYTE [utf8CvtIntToChar+R8-1]"
+                L"\n\tand R10, 0x3F"
+                L"\n\tshl R10, CL"
+                L"\n\tor R9, R10"
+                L"\n\n.continue1:"
+                L"\n\tdec R8"
+                L"\n\tcmp R8, 1"
+                L"\n\tjge .loop1"
+                L"\n\n.break1:"
+                L"\n\n.end1:"
+                L"\n\txor RCX, RCX ; عداد"
+                L"\n\n.loop2:"
+                L"\n\tmov EDX, DWORD [kufrAndInvalidChars+4*RCX]"
+                L"\n\tcmp R9, RDX"
+                L"\n\tje .exit"
+                L"\n\n.continue2:"
+                L"\n\tinc RCX"
+                L"\n\tcmp RCX, "+std::to_wstring(kufrAndInvalidChars.size())+
+                L"\n\tjl .loop2"
+                L"\n\n.break2:"
+                L"\n\txor RCX, RCX ; عداد"
+                L"\n\n.loop3:"
+                L"\n\tmov EDX, DWORD [kufrAndInvalidCharsRangesMin+4*RCX]"
+                L"\n\tcmp R9, RDX"
+                L"\n\tjnge .continue3"
+                L"\n\tmov EDX, DWORD [kufrAndInvalidCharsRangesMax+4*RCX]"
+                L"\n\tcmp R9, RDX"
+                L"\n\tjle .exit"
+                L"\n\n.continue3:"
+                L"\n\tinc RCX"
+                L"\n\tcmp RCX, "+std::to_wstring(kufrAndInvalidCharsRanges.size())+
+                L"\n\tjl .loop3"
+                L"\n\n.break3:"
+                L"\n\n._ret:"
+                L"\n\tret"
+                L"\n\n.exit:"
+                L"\n\tmov RAX, 60"
+                L"\n\tmov RDI, 1"
+                L"\n\tsyscall"
+            );
+            
+            dataAsm+=L"\tutf8CvtIntToChar dd 0,\n";
+            dataAsm+=L"\tkufrAndInvalidChars dd ";
+            auto i=0;
+            for (auto c : kufrAndInvalidChars) {
+                dataAsm+=std::to_wstring((int)c)+L", ";
+                if(++i==kufrAndInvalidChars.size()/2)
+                    dataAsm+=L"\\\n\t";
+            }
+            dataAsm+=L"\n\tkufrAndInvalidCharsRangesMin dd ";
+            i=0;
+            for (auto p : kufrAndInvalidCharsRanges) {
+                dataAsm+=std::to_wstring((int)p.first)+L", ";
+            }
+            dataAsm+=L"\n\tkufrAndInvalidCharsRangesMax dd ";
+            i=0;
+            for (auto p : kufrAndInvalidCharsRanges) {
+                dataAsm+=std::to_wstring((int)p.second)+L", ";
+            }
+            dataAsm+=L"\n";
+            /* TODO: Use SIMD and AVX instructions
+
+            labelsAsm[fun]+=Assembler::inline_asm(
+                L"cmp EAX, DWORD [kufrAndInvalidChars5]"
+                    L"\n\tje .exit"
+                    L"\n\tvmovd XMM0, EAX"
+                    L"\n\tvpbroadcastd  YMM0, XMM0"
+                    L"\n\tvmovupd YMM6, [kufrAndInvalidCharsRangesMin1]"
+                    L"\n\tvmovupd YMM7, [kufrAndInvalidCharsRangesMax1]"
+                    L"\n\tvmovupd YMM8, [kufrAndInvalidCharsRangesMin2]"
+                    L"\n\tvmovupd YMM9, [kufrAndInvalidCharsRangesMax2]"
+                    L"\n\t; YMM5, YMM10 and YMM15 are used for results"
+                    L"\n\tvmovupd YMM11, [kufrAndInvalidChars1]"
+                    L"\n\tvmovupd YMM12, [kufrAndInvalidChars2]"
+                    L"\n\tvmovupd YMM13, [kufrAndInvalidChars3]"
+                    L"\n\tvmovupd YMM14, [kufrAndInvalidChars4]"
+                    L"\n\tvpcmpeqd YMM10, YMM11, YMM0"
+                    L"\n\tvptest YMM10, YMM10"
+                    L"\n\tjnz .exit"
+                    L"\n\tvpcmpeqd YMM10, YMM12, YMM0"
+                    L"\n\tvptest YMM10, YMM10"
+                    L"\n\tjnz .exit"
+                    L"\n\tvpcmpeqd YMM10, YMM13, YMM0"
+                    L"\n\tvptest YMM10, YMM10"
+                    L"\n\tjnz .exit"
+                    L"\n\tvpcmpeqd YMM10, YMM14, YMM0"
+                    L"\n\tvptest YMM10, YMM10"
+                    L"\n\tjnz .exit"
+                    L"\n\tvpcmpeqd YMM5, YMM0, YMM6"
+                    L"\n\tvpcmpgtd YMM10, YMM0, YMM6"
+                    L"\n\tvpor YMM10, YMM10, YMM5"
+                    L"\n\tvpcmpgtd YMM15, YMM0, YMM7"
+                    L"\n\tvpcmpeqd YMM1, YMM1, YMM1"
+                    L"\n\tvpxor YMM15, YMM15, YMM1"
+                    L"\n\tvpand YMM15, YMM15, YMM10"
+                    L"\n\tvptest YMM15, YMM15"
+                    L"\n\tjnz .exit"
+                    L"\n\tvpcmpeqd YMM5, YMM0, YMM8"
+                    L"\n\tvpcmpgtd YMM10, YMM0, YMM8"
+                    L"\n\tvpor YMM10, YMM10, YMM5"
+                    L"\n\tvpcmpgtd YMM15, YMM0, YMM9"
+                    L"\n\tvpcmpeqd YMM1, YMM1, YMM1"
+                    L"\n\tvpxor YMM15, YMM15, YMM1"
+                    L"\n\tvpand YMM15, YMM15, YMM10"
+                    L"\n\tvptest YMM15, YMM15"
+                    L"\n\tjnz .exit"
+                    L"\n\tret"
+                    L"\n.exit:"
+                    L"\n\tmov RAX, 60"
+                    L"\n\tmov RDI, 1"
+                    L"\n\tsyscall"   
+            );
+            auto d=1;
+            const auto alignment=8;
+            for(auto i=0;i<kufrAndInvalidChars.size();i+=alignment){
+                dataAsm+=L"\tkufrAndInvalidChars"+std::to_wstring(d++)+L" dd";
+                for (auto j=i; j<i+alignment; j++) {
+                    dataAsm+=L" "+std::to_wstring((j<kufrAndInvalidChars.size())?(int)kufrAndInvalidChars.at(j):0)+L","; // The zeros are for alignment
+                }
+                dataAsm+=L"\n";
+            }
+            d=1;
+            for(auto i=0;i<kufrAndInvalidCharsRanges.size();i+=alignment){
+                dataAsm+=L"\tkufrAndInvalidCharsRangesMin"+std::to_wstring(d++)+L" dd";
+                for (auto j=i; j<i+alignment; j++) {
+                    dataAsm+=L" "+
+                        std::to_wstring((j<kufrAndInvalidCharsRanges.size())
+                        ?(int)kufrAndInvalidCharsRanges.at(j).first:0
+                    )+L","; // The zeros are for alignment
+                }
+                dataAsm+=L"\n";
+            }
+            d=1;
+            for(auto i=0;i<kufrAndInvalidCharsRanges.size();i+=alignment){
+                dataAsm+=L"\tkufrAndInvalidCharsRangesMax"+std::to_wstring(d++)+L" dd";
+                for (auto j=i; j<i+alignment; j++) {
+                    dataAsm+=L" "+
+                        std::to_wstring((j<kufrAndInvalidCharsRanges.size())
+                        ?(int)kufrAndInvalidCharsRanges.at(j).second:0
+                    )+L","; // The zeros are for alignment
+                }
+                dataAsm+=L"\n";
+            }
+            */
+        }
+        *currentAsmLabel+=Assembler::call(
+            Assembler::label(labelsAsm[fun].label),
+            L"استدعاء "+comment
+        );
         return;
     }
 

@@ -84,6 +84,7 @@ BuiltInFunScope::BuiltInFunScope(
 BuiltInFunScope::~BuiltInFunScope(){}
 
 std::shared_ptr<BuiltInFunScope> BuiltInFunScope::INLINE_ASM=NULL;
+std::shared_ptr<BuiltInFunScope> BuiltInFunScope::INT_TO_CHAR=NULL;
 
 void BuiltInFunScope::invokeOnInterpreter(Interpreter* interpreter){
     invokeOnInterpreterFun(interpreter);
@@ -2203,19 +2204,26 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
 
     auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
 
-    auto TO_CHAR=std::make_shared<BuiltInFunScope>(
-        TO_CHAR_NAME,
-        Type::CHAR,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=std::dynamic_pointer_cast<IntValue>(interpreter->AX)->getValue();
-            wchar_t charValue=static_cast<wchar_t>(val);
-            if(isKufrOrUnsupportedCharacter(charValue))
-                // TODO: show line number
-                throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
-            interpreter->AX=std::make_shared<CharValue>(charValue);
-        }
-    );
+    if(!INT_TO_CHAR)
+        INT_TO_CHAR=std::make_shared<BuiltInFunScope>(
+            TO_CHAR_NAME,
+            Type::CHAR,
+            std::vector<std::pair<std::wstring, SharedType>>{},
+            [](Interpreter* interpreter){
+                auto val=std::dynamic_pointer_cast<IntValue>(interpreter->AX)->getValue();
+                wchar_t charValue=static_cast<wchar_t>(val);
+                if(isKufrOrUnsupportedCharacter(charValue))
+                    // TODO: show line number
+                    throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
+                interpreter->AX=std::make_shared<CharValue>(charValue);
+            },
+            false,
+            [=](Compiler* compiler){
+                return std::vector{
+                    Assembler::ret()
+                };
+            }
+        );
 
     auto SHR=getShrFun<PrimitiveType,IntValue>(classScope,Type::INT);
 
@@ -2263,7 +2271,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,TO_CHAR,
+        TO_FLOAT,TO_DOUBLE,TO_STRING,INT_TO_CHAR,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
         BIN_REPRESENTATION,
     };
