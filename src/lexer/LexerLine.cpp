@@ -580,6 +580,10 @@ void LexerLine::getIntNumberToken(
 
 void LexerLine::getDoubleNumberToken(std::wstring* number){
     try{
+        auto exp=number->find(L'ق');
+        if (exp!=std::wstring::npos) {
+            number->replace(exp,1,L"E");
+        }
         auto doubleNum=std::stod(*number);
     }
     catch(std::out_of_range e){
@@ -589,6 +593,10 @@ void LexerLine::getDoubleNumberToken(std::wstring* number){
 
 void LexerLine::getFloatNumberToken(std::wstring* number){
     try{
+        auto exp=number->find(L'ق');
+        if (exp!=std::wstring::npos) {
+            number->replace(exp,1,L"E");
+        }
         auto floatNum=std::stof(*number);
     }
     catch(std::out_of_range e){
