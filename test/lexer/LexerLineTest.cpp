@@ -18,7 +18,7 @@
 #include "InvalidLengthCharacterLiteralException.hpp"
 #include "InvalidEscapeSequenceException.hpp"
 #include "InvalidUniversalCharacterCodeException.hpp"
-#include "IllegalUnderscoreException.hpp"
+#include "IllegalCommaException.hpp"
 #include "UnsupportedTokenException.hpp"
 #include "OutOfRangeException.hpp"
 #include "InvalidNumberSystemDigitException.hpp"
@@ -273,32 +273,28 @@ SCENARIO("Test LexerLine lexes a line", "[LexerLineTest.cpp]"){
             THEN("Tokenize legals"){
                 std::vector<NumberToken> legals={
                     NumberToken(NumberToken::INT,L"3"),
-                    NumberToken(NumberToken::INT,L"30"),
-                    NumberToken(NumberToken::LONG,L"4545544L"),
-                    NumberToken(NumberToken::LONG,L"30l"),
+                    NumberToken(NumberToken::INT,L"30ص"),
+                    NumberToken(NumberToken::INT,L"30ص4"),
+                    NumberToken(NumberToken::LONG,L"4545544ص8"),
                     NumberToken(NumberToken::DOUBLE,L"3.0"),
-                    NumberToken(NumberToken::DOUBLE,L"3e0"),
-                    NumberToken(NumberToken::DOUBLE,L"3e2"),
-                    NumberToken(NumberToken::DOUBLE,L"3E2"),
-                    NumberToken(NumberToken::DOUBLE,L"3.0e2"),
-                    NumberToken(NumberToken::DOUBLE,L"3.0e-2"),
-                    NumberToken(NumberToken::DOUBLE,L"3.0e-2_0"),
-                    NumberToken(NumberToken::DOUBLE,L"003.0e-2"),
-                    NumberToken(NumberToken::FLOAT,L"3.00f"),
-                    NumberToken(NumberToken::FLOAT,L"3.00F"),
-                    NumberToken(NumberToken::FLOAT,L"03.00F"),
-                    NumberToken(NumberToken::INT,L"3_3_3__0"),
-                    NumberToken(NumberToken::INT,L"32_23_23_2_20"),
-                    NumberToken(NumberToken::DOUBLE,L"12.54e1"),
-                    NumberToken(NumberToken::FLOAT,L"12.54e1f"),
-                    NumberToken(NumberToken::FLOAT,L"12.54e-1f"),
-                    NumberToken(NumberToken::FLOAT,L"1_2.5_4e1_2f"),
-                    NumberToken(NumberToken::UNSIGNED_INT,L"12U"),
-                    NumberToken(NumberToken::UNSIGNED_INT,L"12u"),
-                    NumberToken(NumberToken::UNSIGNED_LONG,L"12ul"),
-                    NumberToken(NumberToken::UNSIGNED_LONG,L"12UL"),
-                    NumberToken(NumberToken::UNSIGNED_LONG,L"12uL"),
-                    NumberToken(NumberToken::UNSIGNED_LONG,L"12Ul"),
+                    NumberToken(NumberToken::DOUBLE,L"3ق0ع"),
+                    NumberToken(NumberToken::DOUBLE,L"3ق2ع8"),
+                    NumberToken(NumberToken::DOUBLE,L"3ق2"),
+                    NumberToken(NumberToken::DOUBLE,L"3.0ق2"),
+                    NumberToken(NumberToken::DOUBLE,L"3.0ق-2"),
+                    NumberToken(NumberToken::DOUBLE,L"3.0ق-2_0"),
+                    NumberToken(NumberToken::DOUBLE,L"003.0ق-2"),
+                    NumberToken(NumberToken::FLOAT,L"3.00ع4"),
+                    NumberToken(NumberToken::FLOAT,L"03.00ع4"),
+                    NumberToken(NumberToken::INT,L"3,3,3,,0"),
+                    NumberToken(NumberToken::INT,L"32,23,23,2,20"),
+                    NumberToken(NumberToken::DOUBLE,L"12.54ق1"),
+                    NumberToken(NumberToken::FLOAT,L"12.54ق1ع4"),
+                    NumberToken(NumberToken::FLOAT,L"12.54ق-1ع4"),
+                    NumberToken(NumberToken::FLOAT,L"1,2.5,4,1,2ع4"),
+                    NumberToken(NumberToken::UNSIGNED_INT,L"12م4"),
+                    NumberToken(NumberToken::UNSIGNED_INT,L"12م"),
+                    NumberToken(NumberToken::UNSIGNED_LONG,L"12م8"),
                     NumberToken(NumberToken::LONG,L"2147483648") // > INT_MAX, should be long even without suffix L
                 };
 
@@ -311,7 +307,7 @@ SCENARIO("Test LexerLine lexes a line", "[LexerLineTest.cpp]"){
                         lexerLine.getTokens()->head->val
                     );
                     auto expected=val;
-                    removeUnderscores(&expected);
+                    removeCommas(&expected);
                     switch(legal.getNumberType()){
                         case NumberToken::LONG:
                             expected=std::to_wstring(std::stoll(expected));
@@ -345,11 +341,11 @@ SCENARIO("Test LexerLine lexes a line", "[LexerLineTest.cpp]"){
                 auto legalNumSys=std::unordered_map<std::wstring,std::wstring>{
                     {L"12",L"12"},
                     {L"0b10100",L"20"},
-                    {L"0B10_101",L"21"},
+                    {L"0B10,101",L"21"},
                     {L"0o12",L"10"},
-                    {L"0O12__34",L"668"},
-                    {L"0x1_2",L"18"},
-                    {L"0XA_bFF_4",L"704500"},
+                    {L"0O12,,34",L"668"},
+                    {L"0x1,2",L"18"},
+                    {L"0XA,bFF,4",L"704500"},
                 };
                 int i=0;
                 for(const auto &legal:legalNumSys){
@@ -371,20 +367,20 @@ SCENARIO("Test LexerLine lexes a line", "[LexerLineTest.cpp]"){
                 }
             };
 
-            THEN("Throw IllegalUnderscoreException when there is illegal underscore"){
+            THEN("Throw IllegalCommaException when there is illegal underscore"){
                 std::vector<std::wstring> illegals={
-                    L"12_",
-                    L"3_.0",
-                    L"4_e2",
-                    L"4e_2",
-                    L"4e2_",
-                    L"15.64_e5",
-                    L"15321__.166_f",
+                    L"12,",
+                    L"3,.0",
+                    L"4,e2",
+                    L"4e,2",
+                    L"4e2,",
+                    L"15.64,e5",
+                    L"15321,.166,f",
                 };
                 auto msgMatcher=[](std::wstring &illegal){
                     return illegal.substr(0,illegal.find(L'_')+1); // substr to first underscore
                 };
-                LexerLineTokensTestWithException<IllegalUnderscoreException>(illegals,msgMatcher);
+                LexerLineTokensTestWithException<IllegalCommaException>(illegals,msgMatcher);
             };
 
             THEN("Throw UnsupportedTokenException when cannot construct tokens"){

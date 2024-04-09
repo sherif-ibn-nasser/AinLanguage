@@ -124,13 +124,13 @@
 
     <context id="numeric" style-ref="number">
       <match extended="true">
-        \b ( 0[xX] [0-9A-Fa-f][0-9A-Fa-f_]*([مص][1248]?)?   # hex literal
-           | 0[oO] [0-7][0-7_]*([مص][1248]?)?                # octal literal
-           | 0[bB] [01][01_]*([مص][1248]?)?                # binary literal
+        \b ( 0[xX] [0-9A-Fa-f][0-9A-Fa-f,]*([مص][1248]?)?   # hex literal
+           | 0[oO] [0-7][0-7,]*([مص][1248]?)?                # octal literal
+           | 0[bB] [01][01,]*([مص][1248]?)?                # binary literal
            | ([0-9]+[ق][-]?[0-9]+|
               ([0-9]*\.[0-9]+|[0-9]+\.)([ق][-]?[0-9]+)?)(ع[48]?)?|
               [0-9]+(ع[48]?)                 # floating-point literal
-           | [0-9][0-9_]*([مص][1248]?)?                # integer literal
+           | [0-9][0-9,]*([مص][1248]?)?                # integer literal
            )
       </match>
     </context>

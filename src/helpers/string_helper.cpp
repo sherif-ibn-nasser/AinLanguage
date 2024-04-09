@@ -14,12 +14,12 @@ bool endsWith(std::string str, std::string suffix)
     return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
 }
 
-void removeUnderscores(std::wstring* wstr){
+void removeCommas(std::wstring* wstr){
     wstr->erase(
         std::remove_if(
             wstr->begin(),
             wstr->end(),
-            [](auto c){return c==L'_';}
+            [](auto c){return c==L',';}
         ),
         wstr->end()
     );

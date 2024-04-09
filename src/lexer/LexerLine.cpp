@@ -15,7 +15,7 @@
 #include"string_helper.hpp"
 #include"MissingQuoteException.hpp"
 #include"UnsupportedTokenException.hpp"
-#include"IllegalUnderscoreException.hpp"
+#include"IllegalCommaException.hpp"
 #include"OutOfRangeException.hpp"
 #include"InvalidNumberSystemDigitException.hpp"
 #include"InvalidIdentifierNameException.hpp"
@@ -306,8 +306,8 @@ SharedLexerToken LexerLine::findNumberToken(){
     
     auto number=getCurrentTokenVal();
 
-    // remove underscores
-    removeUnderscores(&number);
+    // remove commas from token
+    removeCommas(&number);
 
     switch(numType){
         case NumberToken::DOUBLE:
@@ -429,7 +429,7 @@ void LexerLine::skipDigitsAfterExponent(){
     // when character after exponent is underscore
     auto nextChar=charAt(tokenEndIndex+1);
     if(nextChar==L'_')
-        throw IllegalUnderscoreException(lineNumber,getCurrentTokenVal()+nextChar); // append nextChar
+        throw IllegalCommaException(lineNumber,getCurrentTokenVal()+nextChar); // append nextChar
 
     // when character after exponent isn't a digit
     if(!iswdigit(nextChar))
@@ -473,7 +473,7 @@ void LexerLine::skipAfterDigitArray(int startFrom,NUM_SYS numSys){
 
     // must be no commas at the end of number
     if(charAt(tokenEndIndex)==L',')
-        throw IllegalUnderscoreException(lineNumber,getCurrentTokenVal());
+        throw IllegalCommaException(lineNumber,getCurrentTokenVal());
 
 }
 
