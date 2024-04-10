@@ -162,6 +162,7 @@ namespace Assembler {
     AsmInstruction jns(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jl(AsmOperand label, std::wstring comment=L"");
     AsmInstruction jge(AsmOperand label, std::wstring comment=L"");
+    AsmInstruction jb(AsmOperand label, std::wstring comment=L"");
     AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction dec(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
     AsmInstruction neg(AsmOperand d, AsmInstruction::InstructionSize size=AsmInstruction::IMPLICIT, std::wstring comment=L"");
@@ -236,6 +237,7 @@ namespace Assembler {
     AsmOperand R8(int size=AsmInstruction::QWORD);
     AsmOperand R9(int size=AsmInstruction::QWORD);
     AsmOperand R10(int size=AsmInstruction::QWORD);
+    AsmOperand R11(int size=AsmInstruction::QWORD);
     AsmOperand brk_end();
 
     AsmInstruction::InstructionSize size(int size);

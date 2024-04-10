@@ -40,6 +40,8 @@
 #include "ainio.hpp"
 #include "FileScope.hpp"
 #include "runtime/NumberFormatException.hpp"
+#include "BuiltInFilePaths.hpp"
+#include "string_helper.hpp"
 #include "wchar_t_helper.hpp"
 #include <exception>
 #include <limits>
@@ -1661,7 +1663,7 @@ void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
             return std::vector{
                 Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
                 Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
-                Assembler::movd(Assembler::RAX(), Assembler::XMM0())
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
             };
         }
     );
@@ -3919,7 +3921,6 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
                 Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
                 Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
@@ -3934,7 +3935,6 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         false,
         [=](Compiler* compiler){
             return std::vector{
-                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
                 Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
                 Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
             };
@@ -5085,9 +5085,45 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
     };
 
     auto publicFuns=classScope->getPublicFunctions();
+
     for(auto fun:funs){
         (*publicFuns)[fun->getDecl()->toString()]=fun;
     }
+
+    auto CONSTRUCTOR_FROM_BYTE_ARRAY=std::make_shared<BuiltInFunScope>(
+        KeywordToken::NEW.getVal(),
+        Type::STRING,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"مصفوفة_م1",std::make_shared<Type>(Type::Array(Type::UBYTE))}
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto memcpyLabel=compiler->addAinMemcpyAsm();
+            auto allocLabel=compiler->addAinAllocAsm();
+            return std::vector{
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX())), // The size of array
+                Assembler::push(Assembler::imm(L"0")), // preserve space for new string for final return
+                Assembler::push(Assembler::RAX()), // preserve 'from' arg for memcpy
+                Assembler::push(Assembler::imm(L"0")), // preserve space for 'to' arg for memcpy
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::RDX().value+L"+8")), // add 8 bytes for size field
+                Assembler::push(Assembler::RDX(), L"مُعامل الحجم_بالبايت"), // The size to allocate, also arg for memcpy
+                Assembler::call(Assembler::label(allocLabel), L"استدعاء دالة احجز(كبير)"),
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),8), Assembler::RAX()), // 'to' arg for memcpy
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),24), Assembler::RAX()), // final return string
+                // memcpy
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::removeReservedSpaceFromStack(24),
+                Assembler::pop(Assembler::RAX()), // final return
+                Assembler::ret()
+            };
+        }
+    );
+
+    auto decl=CONSTRUCTOR_FROM_BYTE_ARRAY->getDecl()->toString();
+
+    if(!classScope->findPublicConstructor(decl))
+        (*classScope->getPublicConstructors())[decl]=CONSTRUCTOR_FROM_BYTE_ARRAY;
 
 }
 

@@ -58,6 +58,9 @@ void Compiler::visit(ClassScope* scope){
 
 void Compiler::visit(FunScope* scope){
 
+    if(labelsAsm.find(scope)!=labelsAsm.end())
+        return;
+    
     auto decl=scope->getDecl();
     auto isConstructor=decl->isConstructor();
     auto parentClass=BaseScope::getContainingClass(scope->getParentScope()); // may not exist if it's a global function
@@ -403,6 +406,61 @@ void Compiler::visit(FunInvokeExpression* ex){
 void Compiler::visit(NewObjectExpression* ex){
     
     addAinAllocAsm();
+
+    if(ex->getConstructor()->getReturnType()==Type::STRING){
+        auto args=ex->getArgs();
+        auto fun=dynamic_cast<BuiltInFunScope*>(ex->getConstructor().get());
+
+        (*args)[0]->accept(this);
+        
+        if(labelsAsm.find(fun)==labelsAsm.end()){
+            labelsAsm[fun].label=L"method"+std::to_wstring(++methodLabelsSize);
+            labelsAsm[fun].comment=L"دالة "+*Type::STRING_NAME+L"::"+fun->getDecl()->toString();
+            auto chars_iterator_file=PackageScope::AIN_PACKAGE->findFileByPath(
+                toWstring(BuiltInFilePaths::CHARS_ITERATOR)
+            );
+            auto chars_iterator=chars_iterator_file->getPublicClasses()->begin()->second;
+            auto nextFunIterator=chars_iterator->findPublicFunction(
+                L"التالي()"
+            );
+            nextFunIterator->accept(this);
+            auto stringFieldOffset=offsets[chars_iterator->findPrivateVariable(L"النص").get()];
+            auto counterFieldOffset=offsets[chars_iterator->findPrivateVariable(L"ن").get()];
+            labelsAsm[fun]+=Assembler::push(Assembler::R11());
+            labelsAsm[fun]+=Assembler::push(Assembler::RBX());
+            labelsAsm[fun]+=Assembler::push(Assembler::RAX());
+            labelsAsm[fun]+=Assembler::mov(Assembler::R11(), Assembler::addressMov(Assembler::RAX())); // the size
+            labelsAsm[fun]+=Assembler::reserveSpaceOnStack(16);
+            labelsAsm[fun]+=Assembler::mov(Assembler::addressMov(Assembler::RSP(),stringFieldOffset.value), Assembler::RAX());
+            labelsAsm[fun]+=Assembler::mov(
+                Assembler::addressMov(Assembler::RSP(),counterFieldOffset.value),
+                Assembler::imm(L"0"),
+                Assembler::AsmInstruction::QWORD
+            );
+            labelsAsm[fun]+=Assembler::mov(Assembler::RBX(), Assembler::RSP());
+            labelsAsm[fun]+=Assembler::jmp(Assembler::label(L".continue1"));
+            labelsAsm[fun]+=Assembler::localLabel(L"loop1");
+            labelsAsm[fun]+=Assembler::call(Assembler::label(labelsAsm[nextFunIterator.get()].label));
+            labelsAsm[fun]+=Assembler::localLabel(L"continue1");
+            labelsAsm[fun]+=Assembler::cmp(
+                Assembler::addressMov(Assembler::RSP(),counterFieldOffset.value),
+                Assembler::R11()
+            );
+            labelsAsm[fun]+=Assembler::jb(Assembler::label(L".loop1"));
+            labelsAsm[fun]+=Assembler::localLabel(L"break1");
+            labelsAsm[fun]+=Assembler::removeReservedSpaceFromStack(16);
+            labelsAsm[fun]+=Assembler::pop(Assembler::RAX());
+            labelsAsm[fun]+=Assembler::pop(Assembler::RBX());
+            labelsAsm[fun]+=Assembler::pop(Assembler::R11());
+            labelsAsm[fun]+=fun->getGeneratedAsm(this);
+        }
+
+        *currentAsmLabel+=Assembler::call(
+            Assembler::label(labelsAsm[fun].label),
+            L"استدعاء "+labelsAsm[fun].comment
+        );
+        return;
+    }
 
     auto size=ex->getReturnType()->getClassScope()->getSize();
     *currentAsmLabel+=Assembler::push(Assembler::imm(std::to_wstring(size))); // The size arg

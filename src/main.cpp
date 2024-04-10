@@ -169,7 +169,11 @@ int main(int argc, char * argv[]){
     filesStack.push_back(BuiltInFilePaths::AIN_MEM);
     filesStack.push_back(BuiltInFilePaths::AIN_IO);
     filesStack.push_back(BuiltInFilePaths::CHARS_ITERATOR);
-    filesStack.push_back(BuiltInFilePaths::FREXP);
+    filesStack.push_back(BuiltInFilePaths::MATH_FREXP);
+    filesStack.push_back(BuiltInFilePaths::MATH_FREXP10);
+    filesStack.push_back(BuiltInFilePaths::UTIL_INT_TO_STR);
+    filesStack.push_back(BuiltInFilePaths::UTIL_UINT_TO_STR);
+    filesStack.push_back(BuiltInFilePaths::UTIL_FLOAT_TO_STR);
 
     try{
 

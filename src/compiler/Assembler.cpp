@@ -457,6 +457,14 @@ namespace Assembler {
         };
     }
 
+    AsmInstruction jb(AsmOperand label, std::wstring comment){
+        return AsmInstruction{
+            .type=AsmInstruction::JB,
+            .operands={label},
+            .comment=comment
+        };
+    }
+
     AsmInstruction inc(AsmOperand d, AsmInstruction::InstructionSize size, std::wstring comment){
         return AsmInstruction{
             .type=AsmInstruction::INC,
@@ -1116,6 +1124,21 @@ namespace Assembler {
                 value=L"R10D"; break;
             default:
                 value=L"R10"; break;
+        }
+        return AsmOperand{.type=AsmOperand::REG, .value=value};
+    }
+
+    AsmOperand R11(int size){
+        auto value=L"";
+        switch (size) {
+            case AsmInstruction::BYTE:
+                value=L"R11"; break;
+            case AsmInstruction::WORD:
+                value=L"R11W"; break;
+            case AsmInstruction::DWORD:
+                value=L"R11D"; break;
+            default:
+                value=L"R11"; break;
         }
         return AsmOperand{.type=AsmOperand::REG, .value=value};
     }
