@@ -28,6 +28,8 @@ class BuiltInFunScope:public FunScope{
         
         static void addBuiltInFunctionsToByteClass();
         static void addBuiltInFunctionsToUByteClass();
+        static void addBuiltInFunctionsToShortClass();
+        static void addBuiltInFunctionsToUShortClass();
         static void addBuiltInFunctionsToIntClass();
         static void addBuiltInFunctionsToUIntClass();
         static void addBuiltInFunctionsToLongClass();
@@ -176,6 +178,16 @@ class BuiltInFunScope:public FunScope{
         );
 
         template <typename PrimitiveType>
+        static inline std::shared_ptr<BuiltInFunScope> getToShortFun(
+            std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+        );
+
+        template <typename PrimitiveType>
+        static inline std::shared_ptr<BuiltInFunScope> getToUShortFun(
+            std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+        );
+
+        template <typename PrimitiveType>
         static inline std::shared_ptr<BuiltInFunScope> getToIntFun(
             std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
         );
@@ -212,6 +224,8 @@ class BuiltInFunScope:public FunScope{
 
         static const inline auto BYTE_PARAM_NAME=L"_ص1";
         static const inline auto UBYTE_PARAM_NAME=L"_م1";
+        static const inline auto SHORT_PARAM_NAME=L"_ص2";
+        static const inline auto USHORT_PARAM_NAME=L"_م2";
         static const inline auto INT_PARAM_NAME=L"_ص4";
         static const inline auto UINT_PARAM_NAME=L"_م4";
         static const inline auto LONG_PARAM_NAME=L"_ص8";
@@ -241,12 +255,14 @@ class BuiltInFunScope:public FunScope{
         static const inline auto FLOOR_NAME=L"الطابق";
         static const inline auto CEILING_NAME=L"السقف";
         static const inline auto TRUNCATE_NAME=L"اقتطاع";
-        static const inline auto TO_BYTE_NAME=L"كبايت";
-        static const inline auto TO_UBYTE_NAME=L"كبايت_م";
-        static const inline auto TO_INT_NAME=L"كصحيح";
-        static const inline auto TO_UINT_NAME=L"كصحيح_م";
-        static const inline auto TO_LONG_NAME=L"ككبير";
-        static const inline auto TO_ULONG_NAME=L"ككبير_م";
+        static const inline auto TO_BYTE_NAME=L"_ص1";
+        static const inline auto TO_UBYTE_NAME=L"_م1";
+        static const inline auto TO_SHORT_NAME=L"_ص2";
+        static const inline auto TO_USHORT_NAME=L"_م2";
+        static const inline auto TO_INT_NAME=L"_ص4";
+        static const inline auto TO_UINT_NAME=L"_م4";
+        static const inline auto TO_LONG_NAME=L"_ص8";
+        static const inline auto TO_ULONG_NAME=L"_م8";
         static const inline auto TO_FLOAT_NAME=L"كعشري";
         static const inline auto TO_DOUBLE_NAME=L"كعشري_م";
         static const inline auto TO_BOOL_NAME=L"كمنطقي";
@@ -257,7 +273,8 @@ class BuiltInFunScope:public FunScope{
         static const inline auto TZCNT_NAME=L"أصفار_اليمين";
         static const inline auto LOCNT_NAME=L"آحاد_اليسار";
         static const inline auto TOCNT_NAME=L"آحاد_اليمين";
-        static const inline auto IS_NOT_EMPTY_NAME=L"أمشغولة";
+        static const inline auto IS_EMPTY_NAME=L"فارغة";
+        static const inline auto IS_NOT_EMPTY_NAME=L"ليست_فارغة";
 
     public:
         BuiltInFunScope(
@@ -717,6 +734,20 @@ inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getToUByteFun(
     std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
 ){
     return getToAnotherTypeFun<PrimitiveType, IntValue>(classScope, TO_UBYTE_NAME, Type::UBYTE);
+}
+
+template <typename PrimitiveType>
+inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getToShortFun(
+    std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+){
+    return getToAnotherTypeFun<PrimitiveType, IntValue>(classScope, TO_SHORT_NAME, Type::SHORT);
+}
+
+template <typename PrimitiveType>
+inline std::shared_ptr<BuiltInFunScope> BuiltInFunScope::getToUShortFun(
+    std::shared_ptr<PrimitiveClassScope<PrimitiveType>> classScope
+){
+    return getToAnotherTypeFun<PrimitiveType, IntValue>(classScope, TO_USHORT_NAME, Type::USHORT);
 }
 
 template <typename PrimitiveType>
