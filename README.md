@@ -14,11 +14,45 @@ We plan to make the language self-hosted, which means, **Ain** will be written i
 
 [Follow us on YouTube](https://www.youtube.com/@AinProgrammingLanguage)
 
-# What's new in v0.3.0
+# What's new in v0.4 (Compiled Ain)
 
 #### New in the language
 
-* Support `this` operator
+* Generate binary executables for your ain project
+
+* Start [`ainstd`](https://gitlab.com/sherifnasser/AinLanguage/-/blob/main/ainstd/) lib
+
+* Memory management functions in [`ainmem.ain`](https://gitlab.com/sherifnasser/AinLanguage/-/blob/main/ainstd/ainmem.ain)
+
+* Inline assembly
+
+* Add byte, unsigned byte, short and unsigned short data types
+
+* Add floor, ceil, round and truncate functions for float and double as intrinsics
+
+* Primitives names are short now
+
+#### Bug fixes and enhancements
+
+* Fix #4
+
+* Fix #5
+
+* Implement #8
+
+* Fix #9
+
+#### Deprecated in this release
+
+* Methods of converting primitives to string are deprecated temporally and will be available in next releases after implementing pointers (See #10 and #11). One should use the functions in [`ainstd/util`](https://gitlab.com/sherifnasser/AinLanguage/-/blob/main/ainstd/util/) to perform conversions and write the result in unsigned byte array, then use the constructor of string passing the array as an argument
+
+* Methods of converting strings to primitives are deprecated until the next releases
+
+* Reading input function is deprecated and it depends on #10
+
+* Note that these deprecations are temporal and will be available again in next releases when implementing pointers and the borrow checker
+
+* The interpreter is partially deprecated and will will be removed completely in the next release
 
 # Ain and Unicode
 **Ain** currently doesn't support some Unicode characters for some languages.
@@ -33,6 +67,28 @@ printf "\e[?2501h"
 ```
 This will make your Arabic text appear from right to left.
 You could also add this command at the end of `~/.bashrc` file to enable it permanently.
+
+# Assembler
+
+**Ain** uses [`nasm`](https://github.com/netwide-assembler/nasm) to assemble the generated assembly and produce the executable and it should be installed on your system first
+
+# AinSTD lib
+
+[`ainstd`](https://gitlab.com/sherifnasser/AinLanguage/-/blob/main/ainstd/) lib should be installed before using the compiler
+
+#### How to install
+
+* Download the directory [`ainstd`](https://gitlab.com/sherifnasser/AinLanguage/-/blob/main/ainstd/)
+
+* Create a global environment variable `AIN_STD` or add this line to `/etc/profile` (use sudo)
+
+```console
+export AIN_STD="<path-to-dir>/ainstd/"
+```
+
+the path ends with `ainstd/`, e.g., `~/Downloads/ainstd/`
+
+* Restart your machine
 
 # Editor support
 [`ain.lang`](https://gitlab.com/sherifnasser/AinLanguage/-/blob/main/editor-support/ain.lang) is a syntax highlighting definition file that introduces the support for Ain in editors that use GtkSourceView (e.g. GNOME text editor gedit, GNOME Builder, mousepad, etc.)

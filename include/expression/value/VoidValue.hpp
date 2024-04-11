@@ -1,8 +1,8 @@
 #pragma once
 #include "IValue.hpp"
 #include "Type.hpp"
-class UnitValue:public IValue{
+class VoidValue:public IValue{
     public:
-        UnitValue();
+        VoidValue();
         std::wstring toString() override;
 };

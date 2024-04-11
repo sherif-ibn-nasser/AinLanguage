@@ -29,7 +29,7 @@
 #include "FunInvokeExpression.hpp"
 #include "NewObjectExpression.hpp"
 #include "LiteralExpression.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "LogicalExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "NonStaticFunInvokeExpression.hpp"
@@ -126,8 +126,8 @@ namespace{
                 });
             }
 
-            void visit(UnitExpression* ex){
-                setPrints({L"UnitExpression at "+std::to_wstring(ex->getLineNumber())});
+            void visit(VoidExpression* ex){
+                setPrints({L"VoidExpression at "+std::to_wstring(ex->getLineNumber())});
             }
 
             void visit(LogicalExpression* ex){

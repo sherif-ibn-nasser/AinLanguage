@@ -47,3 +47,11 @@ void SetOperatorExpression::setFunOfOp(SharedFunScope fun){
 SetOperatorExpression::Operator SetOperatorExpression::getOp()const{
     return this->op;
 }
+
+void SetOperatorExpression::setOpFunExplicit(bool isOpFunExplicit){
+    this->explicitOpFun=isOpFunExplicit;
+}
+
+bool SetOperatorExpression::isOpFunExplicit(){
+    return this->explicitOpFun;
+}

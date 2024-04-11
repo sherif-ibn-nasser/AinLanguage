@@ -24,7 +24,7 @@ class FunInvokeExpression;
 class NewObjectExpression;
 class NewArrayExpression;
 class LiteralExpression;
-class UnitExpression;
+class VoidExpression;
 
 class LogicalExpression;
 class NonStaticVarAccessExpression;
@@ -62,7 +62,7 @@ class ASTVisitor{
         virtual void visit(NewObjectExpression* ex);
         virtual void visit(NewArrayExpression* ex);
         virtual void visit(LiteralExpression* ex);
-        virtual void visit(UnitExpression* ex);
+        virtual void visit(VoidExpression* ex);
 
         virtual void visit(LogicalExpression* ex);
         virtual void visit(NonStaticVarAccessExpression* ex);

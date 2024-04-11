@@ -8,8 +8,9 @@ public:
     KeywordToken(std::wstring val);
     static bool iskeyword(std::wstring val);
     static bool iskeyword(LexerToken t);
-    static KeywordToken VAR;
-    static KeywordToken VAL;
+    
+    static KeywordToken LET;
+    static KeywordToken MUT;
     static KeywordToken OPERATOR;
     static KeywordToken FUN;
     static KeywordToken RETURN;

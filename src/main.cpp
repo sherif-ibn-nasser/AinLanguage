@@ -1,10 +1,16 @@
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include <memory>
+#include "AinException.hpp"
 #include "BuiltInFunScope.hpp"
 #include "ClassParser.hpp"
+#include "Compiler.hpp"
+#include "CompilerVarsOffsetSetter.hpp"
 #include "ExpressionParser.hpp"
 #include "FileParser.hpp"
 #include "FunDeclParser.hpp"
@@ -32,6 +38,9 @@
 #include "Type.hpp"
 #include "Interpreter.hpp"
 #include "VarsOffsetSetter.hpp"
+#include "ainio.hpp"
+#include "string_helper.hpp"
+#include "BuiltInFilePaths.hpp"
 
 auto typeParserProvider=[](SharedTokensIterator iterator,SharedBaseScope scope){
     return std::make_shared<TypeParser>(
@@ -121,6 +130,10 @@ bool isMainFileOption(std::string o){
     return o=="-m" || o=="--main";
 }
 
+std::string removeExtension(std::string fileName){
+    return fileName.substr(0, fileName.find_last_of("."));
+}
+
 int main(int argc, char * argv[]){
 
     // TODO: show info about ain and available options
@@ -153,8 +166,24 @@ int main(int argc, char * argv[]){
         filesStack.push_back(temp);
     }
 
+
     try{
 
+        // TODO: Make them as ainstd lib
+
+        if(auto ainStdPath=std::getenv("AIN_STD")){
+            for(const auto &entry:std::filesystem::recursive_directory_iterator(ainStdPath)){
+                if(!std::filesystem::is_directory(entry))
+                    filesStack.push_back(entry.path());
+            }
+        }
+        else
+            throw AinException(
+                AinException::errorWString(
+                    L"لم يتم العثور على مسار AIN_STD في متغيرات النظام،\nقم بزيارة https://gitlab.com/sherifnasser/AinLanguage للتعرف على كيفية إضافتها في نظامك."
+                )
+            );
+        
         // parse in reverse and make the main file at the end
         for(int i=filesStack.size()-1;i>=0;i--){
             readAndParse(filesStack[i]);
@@ -171,10 +200,11 @@ int main(int argc, char * argv[]){
         PackageScope::AIN_PACKAGE->accept(checker);
         
         delete checker;
-
+        /*
         auto interpreter=new Interpreter;
         auto lAssigner=new Interpreter::LeftSideAssigner(interpreter);
         auto rAssigner=new Interpreter::RightSideAssigner(interpreter);
+        
         auto varsOffsetSetter=new VarsOffsetSetter(
             &interpreter->offsets,
             interpreter->BP,
@@ -188,17 +218,50 @@ int main(int argc, char * argv[]){
 
         interpreter->lAssigner=lAssigner;
         interpreter->rAssigner=rAssigner;
+
+        */
+
+        auto compiler=new Compiler;
+        auto compilerVarsOffsetSetter=new CompilerVarsOffsetSetter(&compiler->offsets);
+
+        PackageScope::AIN_PACKAGE->accept(compilerVarsOffsetSetter);
+
+        delete compilerVarsOffsetSetter;
         
         auto main=PackageScope::AIN_PACKAGE->
             findFileByPath(toWstring(filesStack[0]))->
             findPublicFunction(L"البداية()");
+
+        main->accept(compiler);
+
+        auto generatedAsm=compiler->getAssemblyFile();
+
+        // ainprint(generatedAsm, false);
+
+        delete compiler;
+
+        auto outputBinName=removeExtension(filesStack[0]);
+        auto outputObjFileName=outputBinName+".o";
+        auto outputAsmFileName=outputBinName+".asm";
+
+        std::ofstream outputAsmFile(outputAsmFileName);
+        outputAsmFile<<toCharPointer(generatedAsm);
+        outputAsmFile.close();
+
+        auto command=
+            "nasm -felf64 -o "+outputObjFileName+" -gdwarf "+outputAsmFileName
+            +"; ld "+outputObjFileName+" -o "+outputBinName
+            +"; rm "+outputObjFileName+" "+outputAsmFileName;
+        system(command.c_str());
         
+        /*
         PackageScope::AIN_PACKAGE->accept(interpreter); // To init global vars
         main->accept(interpreter);
 
         delete lAssigner;
         delete rAssigner;
         delete interpreter;
+        */
 
     }
     catch(std::exception& e){

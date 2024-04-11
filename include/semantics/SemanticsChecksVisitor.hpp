@@ -24,7 +24,7 @@
 #include "NewObjectExpression.hpp"
 #include "NewArrayExpression.hpp"
 #include "LiteralExpression.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "LogicalExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "NonStaticFunInvokeExpression.hpp"
@@ -76,7 +76,9 @@ class SemanticsChecksVisitor:public ASTVisitor{
         void checkOperatorFunParamsSize(FunScope* scope);
         void checkOperatorFunReturnType(FunScope* scope);
         std::wstring getAugmentedAssignOpFunName(AugmentedAssignStatement::Operator op);
+        std::wstring getExplicitAugmentedAssignOpFunName(AugmentedAssignStatement::Operator op);
         std::wstring getOpFunNameOfSetOp(SetOperatorExpression::Operator op);
+        std::wstring getExplicitOpFunNameOfSetOp(SetOperatorExpression::Operator op);
         SharedFunScope findFunInType(
             SharedType type,
             std::wstring funName,

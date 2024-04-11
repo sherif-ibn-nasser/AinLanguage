@@ -6,4 +6,6 @@
 class StringClassScope:public ClassScope{
     public:
         StringClassScope();
+
+        static inline auto SIZE_NAME=std::make_shared<std::wstring>(L"الحجم");
 };

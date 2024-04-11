@@ -15,7 +15,7 @@
 #include "StackOverFlowException.hpp"
 #include "StackUnderFlowException.hpp"
 #include "Type.hpp"
-#include "UnitValue.hpp"
+#include "VoidValue.hpp"
 #include "Variable.hpp"
 #include "FunParam.hpp"
 #include <memory>
@@ -372,9 +372,9 @@ void Interpreter::visit(FunScope* scope){
     if(isConstructor)
         AX=std::make_shared<RefValue>(*BX);
 
-    // When return type of a function is unit but it reaches its end, without an explicit return
+    // When return type of a function is Void but it reaches its end, without an explicit return
     else if(!funReturn) 
-        AX=std::make_shared<UnitValue>();
+        AX=std::make_shared<VoidValue>();
     
     funReturn=false;
 
@@ -606,8 +606,8 @@ void Interpreter::visit(LiteralExpression* ex){
     push(ex->getValue());
 }
 
-void Interpreter::visit(UnitExpression* ex){
-    push(std::make_shared<UnitValue>());
+void Interpreter::visit(VoidExpression* ex){
+    push(std::make_shared<VoidValue>());
 }
 
 void Interpreter::visit(LogicalExpression* ex){

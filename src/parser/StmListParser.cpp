@@ -2,6 +2,7 @@
 #include "ASTVisitor.hpp"
 #include "AugmentedAssignStatement.hpp"
 #include "BreakStatement.hpp"
+#include "ConflictingDeclarationException.hpp"
 #include "ContinueStatement.hpp"
 #include "DoWhileStatement.hpp"
 #include "ExpressionExpectedException.hpp"
@@ -23,7 +24,7 @@
 #include "StmListScope.hpp"
 #include "Type.hpp"
 #include "UnexpectedTokenException.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "VarStm.hpp"
 #include "Variable.hpp"
 #include "WhileStatement.hpp"
@@ -121,15 +122,22 @@ SharedIStatement StmListParser::parseNextStatement(SharedStmListScope parentScop
 }
 
 SharedIStatement StmListParser::parseVarStatement(SharedStmListScope parentScope) {
+    int lineNumber=iterator->lineNumber;
+
     auto varStm=varStmParserProvider(iterator,parentScope)->parse();
 
     if(!varStm)
         return nullptr;
     
     auto var=varStm->getVar();
+    auto varName=*var->getName();
+    auto locals=parentScope->getLocals();
 
-    (*parentScope->getLocals())[*var->getName()]=var;
+    if (locals->find(varName)!=locals->end())
+        throw ConflictingDeclarationException(lineNumber);
 
+    (*locals)[varName]=var;
+    
     return varStm;
 }
 
@@ -274,7 +282,7 @@ SharedIStatement StmListParser::parseReturnStatement(SharedStmListScope parentSc
     auto ex=expressionParserProvider(iterator,parentScope)->parse();
 
     if(!ex)
-        ex=std::make_shared<UnitExpression>(lineNumber);
+        ex=std::make_shared<VoidExpression>(lineNumber);
 
     return std::make_shared<ReturnStatement>(
         lineNumber,
@@ -450,9 +458,6 @@ SharedIStatement StmListParser::parseAsAssignStm(
         );
 
     auto lineNumber=iterator->lineNumber;
-    
-    if(!IExpression::isAssignableExpression(leftEx))
-        throw OnlyVariablesAreAssignableException(lineNumber);
 
     iterator->next();
     
