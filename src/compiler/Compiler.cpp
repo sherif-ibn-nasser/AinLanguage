@@ -35,6 +35,7 @@
 #include "BuiltInFilePaths.hpp"
 #include "string_helper.hpp"
 #include "wchar_t_helper.hpp"
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -417,7 +418,7 @@ void Compiler::visit(NewObjectExpression* ex){
             labelsAsm[fun].label=L"method"+std::to_wstring(++methodLabelsSize);
             labelsAsm[fun].comment=L"دالة "+*Type::STRING_NAME+L"::"+fun->getDecl()->toString();
             auto chars_iterator_file=PackageScope::AIN_PACKAGE->findFileByPath(
-                toWstring(BuiltInFilePaths::CHARS_ITERATOR)
+                toWstring(std::string(std::getenv("AIN_STD"))+BuiltInFilePaths::CHARS_ITERATOR)
             );
             auto chars_iterator=chars_iterator_file->getPublicClasses()->begin()->second;
             auto nextFunIterator=chars_iterator->findPublicFunction(
@@ -1793,7 +1794,7 @@ std::wstring Compiler::addAinAllocAsm(){
     );
 
     AIN_ALLOC=PackageScope::AIN_PACKAGE
-        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findFileByPath(toWstring(std::string(std::getenv("AIN_STD"))+BuiltInFilePaths::AIN_MEM))
         ->findPublicFunction(decl.toString())
         .get();
 
@@ -1833,7 +1834,7 @@ std::wstring Compiler::addAinReAllocAsm(){
     );
 
     AIN_REALLOC=PackageScope::AIN_PACKAGE
-        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findFileByPath(toWstring(std::string(std::getenv("AIN_STD"))+BuiltInFilePaths::AIN_MEM))
         ->findPublicFunction(decl.toString())
         .get();
 
@@ -1876,7 +1877,7 @@ std::wstring Compiler::addAinMemcpyAsm(){
     );
 
     AIN_MEMCPY=PackageScope::AIN_PACKAGE
-        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findFileByPath(toWstring(std::string(std::getenv("AIN_STD"))+BuiltInFilePaths::AIN_MEM))
         ->findPublicFunction(decl.toString())
         .get();
 
@@ -1915,7 +1916,7 @@ std::wstring Compiler::addAinAllocateArrayAsm(){
     );
 
     AIN_ALLOCATE_ARRAY=PackageScope::AIN_PACKAGE
-        ->findFileByPath(toWstring(BuiltInFilePaths::AIN_MEM))
+        ->findFileByPath(toWstring(std::string(std::getenv("AIN_STD"))+BuiltInFilePaths::AIN_MEM))
         ->findPrivateFunction(decl.toString())
         .get();
 

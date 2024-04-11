@@ -1,10 +1,12 @@
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include <memory>
+#include "AinException.hpp"
 #include "BuiltInFunScope.hpp"
 #include "ClassParser.hpp"
 #include "Compiler.hpp"
@@ -164,19 +166,24 @@ int main(int argc, char * argv[]){
         filesStack.push_back(temp);
     }
 
-    // TODO: Make them as ainstd lib
-    // FIXME: Add those files to path
-    filesStack.push_back(BuiltInFilePaths::AIN_MEM);
-    filesStack.push_back(BuiltInFilePaths::AIN_IO);
-    filesStack.push_back(BuiltInFilePaths::CHARS_ITERATOR);
-    filesStack.push_back(BuiltInFilePaths::MATH_FREXP);
-    filesStack.push_back(BuiltInFilePaths::MATH_FREXP10);
-    filesStack.push_back(BuiltInFilePaths::UTIL_INT_TO_STR);
-    filesStack.push_back(BuiltInFilePaths::UTIL_UINT_TO_STR);
-    filesStack.push_back(BuiltInFilePaths::UTIL_FLOAT_TO_STR);
 
     try{
 
+        // TODO: Make them as ainstd lib
+
+        if(auto ainStdPath=std::getenv("AIN_STD")){
+            for(const auto &entry:std::filesystem::recursive_directory_iterator(ainStdPath)){
+                if(!std::filesystem::is_directory(entry))
+                    filesStack.push_back(entry.path());
+            }
+        }
+        else
+            throw AinException(
+                AinException::errorWString(
+                    L"لم يتم العثور على مسار AIN_STD في متغيرات النظام،\nقم بزيارة https://gitlab.com/sherifnasser/AinLanguage للتعرف على كيفية إضافتها في نظامك."
+                )
+            );
+        
         // parse in reverse and make the main file at the end
         for(int i=filesStack.size()-1;i>=0;i--){
             readAndParse(filesStack[i]);

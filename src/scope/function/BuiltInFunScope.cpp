@@ -432,123 +432,15 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
-    auto PRINT_INVOKE_INTERPRETER_FUN=
-    [](Interpreter* interpreter){
-        auto msg=interpreter->top();
-        ainprint(msg->toString(), false);
-        interpreter->AX=std::make_shared<VoidValue>();
-    };
-
-    auto PRINTLN_INVOKE_INTERPRETER_FUN=
-    [](Interpreter* interpreter){
-        auto msg=interpreter->top();
-        ainprint(msg->toString(), true);
-        interpreter->AX=std::make_shared<VoidValue>();
-    };
-
-    auto PRINT_INT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_INT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_UINT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{UINT_PARAM_NAME,Type::UINT}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_UINT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{UINT_PARAM_NAME,Type::UINT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_LONG=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME,Type::LONG}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_LONG=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME,Type::LONG}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_ULONG=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{ULONG_PARAM_NAME,Type::ULONG}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_ULONG=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{ULONG_PARAM_NAME,Type::ULONG}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_FLOAT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_FLOAT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_DOUBLE=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_DOUBLE=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_CHAR=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{CHAR_PARAM_NAME,Type::CHAR}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_CHAR=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{CHAR_PARAM_NAME,Type::CHAR}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
     auto PRINT_STRING=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
         Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        PRINT_INVOKE_INTERPRETER_FUN,
+        [](Interpreter* interpreter){
+            auto msg=interpreter->top();
+            ainprint(msg->toString(), false);
+            interpreter->AX=std::make_shared<VoidValue>();
+        },
         false,
         [](Compiler* compiler){
             return std::vector{
@@ -566,7 +458,11 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         PRINTLN_NAME,
         Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        PRINTLN_INVOKE_INTERPRETER_FUN,
+        [](Interpreter* interpreter){
+            auto msg=interpreter->top();
+            ainprint(msg->toString(), true);
+            interpreter->AX=std::make_shared<VoidValue>();
+        },
         false,
         [](Compiler* compiler){
             return std::vector{
@@ -583,34 +479,6 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
                 Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::R9(Assembler::AsmInstruction::BYTE)) // restore the byte after the last char
             };
         }
-    );
-
-    auto PRINT_BOOL=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{BOOL_PARAM_NAME,Type::BOOL}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_BOOL=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{BOOL_PARAM_NAME,Type::BOOL}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_Void=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{VOID_PARAM_NAME,Type::VOID}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_Void=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::VOID,
-        std::vector<std::pair<std::wstring, SharedType>>{{VOID_PARAM_NAME,Type::VOID}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
     );
 
     auto ROUND_FLOAT=std::make_shared<BuiltInFunScope>(
@@ -749,16 +617,7 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         READ_BYTE_FROM_ADDRESS,
         READ_LONG_FROM_ADDRESS,
         READ,READ_LINE,
-        PRINT_INT,PRINTLN_INT,
-        PRINT_UINT,PRINTLN_UINT,
-        PRINT_LONG,PRINTLN_LONG,
-        PRINT_ULONG,PRINTLN_ULONG,
-        PRINT_FLOAT,PRINTLN_FLOAT,
-        PRINT_DOUBLE,PRINTLN_DOUBLE,
-        PRINT_CHAR,PRINTLN_CHAR,
         PRINT_STRING,PRINTLN_STRING,
-        PRINT_BOOL,PRINTLN_BOOL,
-        PRINT_Void,PRINTLN_Void,
         ROUND_FLOAT,FLOOR_FLOAT,CEIL_FLOAT,TRUNCATE_FLOAT,
         ROUND_DOUBLE,FLOOR_DOUBLE,CEIL_DOUBLE,TRUNCATE_DOUBLE,
     };
@@ -771,6 +630,8 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 void BuiltInFunScope::addBuiltInFunctionsToBuiltInClasses() {
     addBuiltInFunctionsToByteClass();
     addBuiltInFunctionsToUByteClass();
+    addBuiltInFunctionsToShortClass();
+    addBuiltInFunctionsToUShortClass();
     addBuiltInFunctionsToIntClass();
     addBuiltInFunctionsToUIntClass();
     addBuiltInFunctionsToLongClass();
@@ -1356,8 +1217,6 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
 
     auto SHL=getShlFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
@@ -1401,7 +1260,6 @@ void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -1813,8 +1671,6 @@ void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
 
     auto SHL=getShlFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
@@ -1857,7 +1713,6 @@ void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -2418,8 +2273,6 @@ void BuiltInFunScope::addBuiltInFunctionsToShortClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
 
     auto SHL=getShlFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
@@ -2463,7 +2316,6 @@ void BuiltInFunScope::addBuiltInFunctionsToShortClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -2853,8 +2705,6 @@ void BuiltInFunScope::addBuiltInFunctionsToUShortClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,UShortValue>(classScope,Type::USHORT);
 
     auto SHL=getShlFun<PrimitiveType,UShortValue>(classScope,Type::USHORT);
@@ -2897,7 +2747,6 @@ void BuiltInFunScope::addBuiltInFunctionsToUShortClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -3411,8 +3260,6 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     if(!INT_TO_CHAR)
         INT_TO_CHAR=std::make_shared<BuiltInFunScope>(
             TO_CHAR_NAME,
@@ -3484,7 +3331,7 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,INT_TO_CHAR,
+        INT_TO_CHAR,
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
         BIN_REPRESENTATION,
     };
@@ -3856,8 +3703,6 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,UIntValue>(classScope,Type::UINT);
 
     auto SHL=getShlFun<PrimitiveType,UIntValue>(classScope,Type::UINT);
@@ -3900,7 +3745,7 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
+        
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -4387,8 +4232,6 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,LongValue>(classScope,Type::LONG);
 
     auto SHL=getShlFun<PrimitiveType,LongValue>(classScope,Type::LONG);
@@ -4439,7 +4282,7 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
+        
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
         BIN_REPRESENTATION,
     };
@@ -4779,8 +4622,6 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto SHR=getShrFun<PrimitiveType,ULongValue>(classScope,Type::ULONG);
 
     auto SHL=getShlFun<PrimitiveType,ULongValue>(classScope,Type::ULONG);
@@ -4823,7 +4664,7 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
+        
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -5474,8 +5315,6 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         }
     );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
         BIN_REPRESENTATION_NAME,
         Type::INT,
@@ -5493,7 +5332,7 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
         TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,
+        TO_FLOAT,TO_DOUBLE,
         BIN_REPRESENTATION,
     };
 
@@ -6145,8 +5984,6 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
 
     auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
     auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
         BIN_REPRESENTATION_NAME,
         Type::LONG,
@@ -6168,7 +6005,7 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
         TO_INT,TO_UINT,
         TO_LONG,TO_ULONG,
         TO_FLOAT,TO_DOUBLE,
-        TO_STRING,
+        
         BIN_REPRESENTATION,
     };
 
