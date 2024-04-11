@@ -23,7 +23,7 @@
 #include "NewObjectExpression.hpp"
 #include "NewArrayExpression.hpp"
 #include "LiteralExpression.hpp"
-#include "UnitExpression.hpp"
+#include "VoidExpression.hpp"
 #include "LogicalExpression.hpp"
 #include "NonStaticVarAccessExpression.hpp"
 #include "NonStaticFunInvokeExpression.hpp"
@@ -79,7 +79,7 @@ void ASTVisitor::visit(NewArrayExpression* ex){}
 
 void ASTVisitor::visit(LiteralExpression* ex){}
 
-void ASTVisitor::visit(UnitExpression* ex){}
+void ASTVisitor::visit(VoidExpression* ex){}
 
 void ASTVisitor::visit(LogicalExpression* ex){}
 
@@ -185,7 +185,7 @@ void LiteralExpression::accept(ASTVisitor* visitor){
     visitor->visit(this);
 }
 
-void UnitExpression::accept(ASTVisitor* visitor){
+void VoidExpression::accept(ASTVisitor* visitor){
     visitor->visit(this);
 }
 

@@ -8,6 +8,8 @@
 #include "Type.hpp"
 #include "ClassScope.hpp"
 #include "FunParam.hpp"
+#include "string_helper.hpp"
+#include <stdexcept>
 
 OperatorFunInvokeExpression::OperatorFunInvokeExpression(
     int lineNumber,
@@ -71,6 +73,80 @@ NonStaticFunInvokeExpression(
         case Operator::SET_EQUAL:
             this->funName=OperatorFunctions::SET_NAME;break;
     }
+}
+
+OperatorFunInvokeExpression::OperatorFunInvokeExpression(
+    int lineNumber,
+    std::wstring opName,
+    SharedVector<SharedIExpression> args,
+    SharedIExpression inside
+):
+NonStaticFunInvokeExpression(lineNumber, opName, args, inside){
+    if(opName==OperatorFunctions::PLUS_NAME){
+        this->op=Operator::PLUS;
+    }
+    else if(opName==OperatorFunctions::MINUS_NAME){
+        this->op=Operator::MINUS;
+    }
+    else if(opName==OperatorFunctions::TIMES_NAME){
+        this->op=Operator::TIMES;
+    }
+    else if(opName==OperatorFunctions::DIV_NAME){
+        this->op=Operator::DIV;
+    }
+    else if(opName==OperatorFunctions::MOD_NAME){
+        this->op=Operator::MOD;
+    }
+    else if(opName==OperatorFunctions::POW_NAME){
+        this->op=Operator::POW;
+    }
+    else if(opName==OperatorFunctions::COMPARE_TO_NAME){
+        this->op=Operator::LESS;
+    }
+    else if(opName==OperatorFunctions::EQUALS_NAME){
+        this->op=Operator::EQUAL_EQUAL;
+    }
+    else if(opName==OperatorFunctions::SHR_NAME){
+        this->op=Operator::SHR;
+    }
+    else if(opName==OperatorFunctions::SHL_NAME){
+        this->op=Operator::SHL;
+    }
+    else if(opName==OperatorFunctions::BIT_AND_NAME){
+        this->op=Operator::BIT_AND;
+    }
+    else if(opName==OperatorFunctions::XOR_NAME){
+        this->op=Operator::XOR;
+    }
+    else if(opName==OperatorFunctions::BIT_OR_NAME){
+        this->op=Operator::BIT_OR;
+    }
+    else if(opName==OperatorFunctions::LOGICAL_NOT_NAME){
+        this->op=Operator::LOGICAL_NOT;
+    }
+    else if(opName==OperatorFunctions::BIT_NOT_NAME){
+        this->op=Operator::BIT_NOT;
+    }
+    else if(opName==OperatorFunctions::UNARY_PLUS_NAME){
+        this->op=Operator::UNARY_PLUS;
+    }
+    else if(opName==OperatorFunctions::UNARY_MINUS_NAME){
+        this->op=Operator::UNARY_MINUS;
+    }
+    else if(opName==OperatorFunctions::INC_NAME){
+        this->op=Operator::PRE_INC;
+    }
+    else if(opName==OperatorFunctions::DEC_NAME){
+        this->op=Operator::PRE_DEC;
+    }
+    else if(opName==OperatorFunctions::GET_NAME){
+        this->op=Operator::GET;
+    }
+    else if(opName==OperatorFunctions::SET_NAME){
+        this->op=Operator::SET_EQUAL;
+    }
+    else
+        throw std::invalid_argument(toCharPointer(L"Cannot instantiate an operator fun name with name \""+opName+L"\""));
 }
 
 OperatorFunInvokeExpression::Operator OperatorFunInvokeExpression::getOp()const{

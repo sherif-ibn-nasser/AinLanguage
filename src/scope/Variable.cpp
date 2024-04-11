@@ -1,5 +1,6 @@
 #include "Variable.hpp"
 #include "SharedPtrTypes.hpp"
+#include "Type.hpp"
 #include "VarDecl.hpp"
 #include <memory>
 #include <vector>

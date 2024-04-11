@@ -12,7 +12,11 @@ class Type{
         Type(SharedWString name,SharedClassScope classScope=nullptr);
         bool operator==(const Type& type)const;
         bool operator!=(const Type& type)const;
-        static SharedWString UNIT_NAME;
+        static SharedWString VOID_NAME;
+        static SharedWString BYTE_NAME;
+        static SharedWString UBYTE_NAME;
+        static SharedWString SHORT_NAME;
+        static SharedWString USHORT_NAME;
         static SharedWString INT_NAME;
         static SharedWString UINT_NAME;
         static SharedWString LONG_NAME;
@@ -23,8 +27,12 @@ class Type{
         static SharedWString STRING_NAME;
         static SharedWString BOOL_NAME;
         static SharedWString ARRAY_NAME;
-        static SharedType UNIT;
+        static SharedType VOID;
         static SharedType CHAR;
+        static SharedType BYTE;
+        static SharedType UBYTE;
+        static SharedType SHORT;
+        static SharedType USHORT;
         static SharedType INT;
         static SharedType LONG;
         static SharedType FLOAT;
@@ -34,6 +42,7 @@ class Type{
         static SharedType BOOL;
         static SharedType STRING;
         static std::shared_ptr<ArrayClassScope> ARRAY_CLASS;
+        static int getSize(Type* type_ptr);
 
         virtual SharedClassScope getClassScope();
         

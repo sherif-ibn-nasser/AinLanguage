@@ -19,4 +19,6 @@ class FunScope:public StmListScope{
         SharedFunDecl getDecl();
         void setReturnValue(SharedIValue returnValue);
         SharedIValue getReturnValue();
+        SharedMap<std::wstring, SharedVariable> getParamsFromLocals();
+        SharedMap<std::wstring, SharedVariable> getNonParamsFromLocals();
 };

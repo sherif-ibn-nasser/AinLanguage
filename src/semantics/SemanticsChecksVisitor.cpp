@@ -7,6 +7,7 @@
 #include "FunctionNotFoundException.hpp"
 #include "InvalidOperatorFunDeclarationException.hpp"
 #include "MustHaveExplicitTypeException.hpp"
+#include "OnlyVariablesAreAssignableException.hpp"
 #include "OperatorFunctions.hpp"
 #include "SharedPtrTypes.hpp"
 #include "Type.hpp"
@@ -52,6 +53,14 @@ void SemanticsChecksVisitor::visit(FileScope* scope){
 void SemanticsChecksVisitor::visit(ClassScope* scope){
 
     if(
+        scope==Type::BYTE->getClassScope().get()
+        ||
+        scope==Type::UBYTE->getClassScope().get()
+        ||
+        scope==Type::SHORT->getClassScope().get()
+        ||
+        scope==Type::USHORT->getClassScope().get()
+        ||
         scope==Type::INT->getClassScope().get()
         ||
         scope==Type::UINT->getClassScope().get()
@@ -60,7 +69,7 @@ void SemanticsChecksVisitor::visit(ClassScope* scope){
         ||
         scope==Type::ULONG->getClassScope().get()
         ||
-        scope==Type::UNIT->getClassScope().get()
+        scope==Type::VOID->getClassScope().get()
         ||
         scope==Type::DOUBLE->getClassScope().get()
         ||
@@ -176,7 +185,24 @@ void SemanticsChecksVisitor::visit(AugmentedAssignStatement* stm){
 
     auto exType=right->getReturnType();
 
-    std::wstring funName=getAugmentedAssignOpFunName(stm->getOp());
+    std::wstring funName=getExplicitAugmentedAssignOpFunName(stm->getOp());
+    try{
+        auto explicitFun=findOpFunInType(
+            lType,
+            funName,
+            {exType},
+            lineNumber
+        );
+        stm->setOpFun(explicitFun);
+        stm->setOpFunExplicit(true);
+        return;
+    }
+    catch(FunctionNotFoundException ex){}
+
+    if(!IExpression::isAssignableExpression(left))
+        throw OnlyVariablesAreAssignableException(lineNumber);    
+
+    funName=getAugmentedAssignOpFunName(stm->getOp());
 
     auto fun=findOpFunInType(
         lType,
@@ -238,12 +264,12 @@ void SemanticsChecksVisitor::visit(ReturnStatement* stm){
 
     auto funScope=BaseScope::getContainingFun(stm->getRunScope());
     
-    // Return statements in constructors should return Unit
+    // Return statements in constructors should return Void
     if(funScope->getDecl()->isConstructor()){
-        if(*exType!=*Type::UNIT)
+        if(*exType!=*Type::VOID)
             throw UnexpectedTypeException(
                 stm->getLineNumber(),
-                *Type::UNIT_NAME,
+                *Type::VOID_NAME,
                 *exType->getName()
             );
     }
@@ -445,10 +471,10 @@ void SemanticsChecksVisitor::visit(NewArrayExpression* ex){
     for(auto cap:ex->getCapacities()){
         cap->accept(this);
         auto capType=cap->getReturnType();
-        if(capType->getClassScope()!=Type::INT->getClassScope())
+        if(capType->getClassScope()!=Type::ULONG->getClassScope())
             throw UnexpectedTypeException(
                 cap->getLineNumber(),
-                *Type::INT_NAME,
+                *Type::ULONG_NAME,
                 *capType->getName()
             );
     }
@@ -589,14 +615,29 @@ void SemanticsChecksVisitor::visit(SetOperatorExpression* ex){
 
     std::vector<SharedType> paramsTypes;
 
+    std::wstring opFunName;
+
     // When operator is not inc or dec operators
     if(auto exOfValue=ex->getValueEx()){
         exOfValue->accept(this);
         auto exType=exOfValue->getReturnType();
         paramsTypes.push_back(exType);
+        opFunName=getExplicitOpFunNameOfSetOp(ex->getOp());
+        try{
+            auto explicitFun=findOpFunInType(
+                typeOfGetEx,
+                opFunName,
+                paramsTypes,
+                lineNumber
+            );
+            ex->setFunOfOp(explicitFun);
+            ex->setReturnType(explicitFun->getReturnType());
+            ex->setOpFunExplicit(true);
+            return;
+        }catch (FunctionNotFoundException ex){}
     }
-    
-    std::wstring opFunName=getOpFunNameOfSetOp(ex->getOp());
+
+    opFunName=getOpFunNameOfSetOp(ex->getOp());
 
     auto opFun=findOpFunInType(
         typeOfGetEx,
@@ -803,11 +844,32 @@ void SemanticsChecksVisitor::checkOperatorFunReturnType(FunScope* scope){
 
     auto returnType=scope->getReturnType();
 
-    if(opName==OperatorFunctions::COMPARE_TO_NAME&&returnType->getClassScope()!=Type::INT->getClassScope())
-        throw InvalidOperatorFunDeclarationException(L"دالة قارن_مع يجب أن ترجع قيمة من نوع صحيح.");
+    if(opName==OperatorFunctions::COMPARE_TO_NAME&&returnType->getClassScope()!=Type::LONG->getClassScope())
+        throw InvalidOperatorFunDeclarationException(L"دالة قارن_مع يجب أن ترجع قيمة من نوع كبير.");
 
     if(opName==OperatorFunctions::EQUALS_NAME&&returnType->getClassScope()!=Type::BOOL->getClassScope())
         throw InvalidOperatorFunDeclarationException(L"دالة يساوي يجب أن ترجع قيمة من نوع منطقي.");
+    if(
+        (
+            opName==OperatorFunctions::PLUS_ASSIGN_NAME||
+            opName==OperatorFunctions::MINUS_ASSIGN_NAME||
+            opName==OperatorFunctions::TIMES_ASSIGN_NAME||
+            opName==OperatorFunctions::DIV_ASSIGN_NAME||
+            opName==OperatorFunctions::MOD_ASSIGN_NAME||
+            opName==OperatorFunctions::POW_ASSIGN_NAME||
+            opName==OperatorFunctions::SHR_ASSIGN_NAME||
+            opName==OperatorFunctions::SHL_ASSIGN_NAME||
+            opName==OperatorFunctions::BIT_AND_ASSIGN_NAME||
+            opName==OperatorFunctions::XOR_ASSIGN_NAME||
+            opName==OperatorFunctions::BIT_OR_ASSIGN_NAME
+        )
+        &&
+        returnType->getClassScope()!=Type::VOID->getClassScope()
+    )
+        throw InvalidOperatorFunDeclarationException(
+            L"دالة "+opName+
+            L" يجب أن ترجع قيمة من نوع "+*Type::VOID_NAME
+        );
     
     auto parentClass=BaseScope::getContainingClass(scope->getParentScope());
     if(
@@ -854,6 +916,38 @@ std::wstring SemanticsChecksVisitor::getAugmentedAssignOpFunName(
     assert(false); // Unreachable
 }
 
+std::wstring SemanticsChecksVisitor::getExplicitAugmentedAssignOpFunName(
+    AugmentedAssignStatement::Operator op
+){
+    switch(op){
+        case AugmentedAssignStatement::Operator::PLUS:
+            return OperatorFunctions::PLUS_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::MINUS:
+            return OperatorFunctions::MINUS_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::TIMES:
+            return OperatorFunctions::TIMES_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::DIV:
+            return OperatorFunctions::DIV_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::MOD:
+            return OperatorFunctions::MOD_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::POW:
+            return OperatorFunctions::POW_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::SHR:
+            return OperatorFunctions::SHR_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::SHL:
+            return OperatorFunctions::SHL_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::BIT_AND:
+            return OperatorFunctions::BIT_AND_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::XOR:
+            return OperatorFunctions::XOR_ASSIGN_NAME;
+        case AugmentedAssignStatement::Operator::BIT_OR:
+            return OperatorFunctions::BIT_OR_ASSIGN_NAME;
+        default:{}
+    }
+
+    assert(false); // Unreachable
+}
+
 std::wstring SemanticsChecksVisitor::getOpFunNameOfSetOp(SetOperatorExpression::Operator op) {
     switch(op){
         case SetOperatorExpression::Operator::PLUS_EQUAL:
@@ -884,6 +978,35 @@ std::wstring SemanticsChecksVisitor::getOpFunNameOfSetOp(SetOperatorExpression::
         case SetOperatorExpression::Operator::PRE_DEC:
         case SetOperatorExpression::Operator::POST_DEC:
             return OperatorFunctions::DEC_NAME;
+        default:
+            return L"";
+    }
+}
+
+std::wstring SemanticsChecksVisitor::getExplicitOpFunNameOfSetOp(SetOperatorExpression::Operator op) {
+    switch(op){
+        case SetOperatorExpression::Operator::PLUS_EQUAL:
+            return OperatorFunctions::PLUS_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::MINUS_EQUAL:
+            return OperatorFunctions::MINUS_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::TIMES_EQUAL:
+            return OperatorFunctions::TIMES_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::DIV_EQUAL:
+            return OperatorFunctions::DIV_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::MOD_EQUAL:
+            return OperatorFunctions::MOD_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::POW_EQUAL:
+            return OperatorFunctions::POW_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::SHR_EQUAL:
+            return OperatorFunctions::SHR_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::SHL_EQUAL:
+            return OperatorFunctions::SHL_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::BIT_AND_EQUAL:
+            return OperatorFunctions::BIT_AND_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::XOR_EQUAL:
+            return OperatorFunctions::XOR_ASSIGN_NAME;
+        case SetOperatorExpression::Operator::BIT_OR_EQUAL:
+            return OperatorFunctions::BIT_OR_ASSIGN_NAME;
         default:
             return L"";
     }

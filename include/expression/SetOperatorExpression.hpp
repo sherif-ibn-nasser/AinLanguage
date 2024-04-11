@@ -44,10 +44,15 @@ class SetOperatorExpression:public IExpression{
 
         Operator getOp()const;
 
+        void setOpFunExplicit(bool isOpFunExplicit);
+        
+        bool isOpFunExplicit();
+
     private:
         SharedOpFunInvokeExpression exOfGet;
         SharedIExpression valueEx;
         SharedFunScope funOfSet;
         SharedFunScope funOfOp;
         Operator op;
+        bool explicitOpFun=false; // Indicates if the augmented assignment operator method is defined in the return type of get ex
 };

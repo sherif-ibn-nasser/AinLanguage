@@ -1,8 +1,8 @@
 #pragma once
 #include "IExpression.hpp"
 #include "Type.hpp"
-class UnitExpression:public IExpression{
+class VoidExpression:public IExpression{
     public:
-        UnitExpression(int lineNumber);
+        VoidExpression(int lineNumber);
         void accept(ASTVisitor *visitor) override;
 };
