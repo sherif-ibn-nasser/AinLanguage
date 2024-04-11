@@ -36,7 +36,7 @@ TEST_CASE("VarDeclParser tests","[VarDeclParserTest.cpp]"){
 
     SECTION("parse var keyword"){
         std::vector<LexerToken> tokens={
-            KeywordToken::VAR,
+            KeywordToken::MUT,
             NAME
         };
         SharedVarDecl result;
@@ -74,7 +74,7 @@ TEST_CASE("VarDeclParser tests","[VarDeclParserTest.cpp]"){
 
     SECTION("parse val keyword"){
         std::vector<LexerToken> tokens={
-            KeywordToken::VAL,
+            KeywordToken::LET,
             NAME
         };
         SharedVarDecl result;

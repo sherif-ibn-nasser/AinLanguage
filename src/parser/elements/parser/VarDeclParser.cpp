@@ -17,16 +17,15 @@ typeParser(
 
 SharedVarDecl VarDeclParser::parse(){
 
-    auto isVal=iterator->currentMatch(KeywordToken::VAL);
-
-    if(
-        !iterator->currentMatch(KeywordToken::VAR)
-        &&
-        !isVal
-    )
+    if(!iterator->currentMatch(KeywordToken::LET))
         return nullptr;
 
-    auto nameId=expectNextIdentifier();
+    auto isVar=iterator->nextMatch(KeywordToken::MUT);
+
+    if(isVar)
+        iterator->next();
+
+    auto nameId=expectIdentifier();
 
     auto name=std::make_shared<std::wstring>(nameId);
 
@@ -47,7 +46,7 @@ SharedVarDecl VarDeclParser::parse(){
     auto var=std::make_shared<VarDecl>(
         name,
         type,
-        std::make_shared<bool>(isVal)
+        std::make_shared<bool>(!isVar) // isVal
     );
 
     return var;

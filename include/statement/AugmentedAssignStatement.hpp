@@ -26,7 +26,12 @@ class AugmentedAssignStatement:public AssignStatement{
 
         void setOpFun(SharedFunScope opFun);
 
+        void setOpFunExplicit(bool isOpFunExplicit);
+        
+        bool isOpFunExplicit();
+
     private:
         Operator op;
         SharedFunScope opFun;
+        bool explicitOpFun=false; // Indicates if the augmented assignment operator method is defined in the type of left ex
 };

@@ -1,9 +1,12 @@
 #include "BuiltInFunScope.hpp"
 #include "ArrayIndexOutOfRangeException.hpp"
+#include "Assembler.hpp"
 #include "BoolClassScope.hpp"
 #include "BoolValue.hpp"
+#include "ByteValue.hpp"
 #include "CharClassScope.hpp"
 #include "CharValue.hpp"
+#include "Compiler.hpp"
 #include "ContainsKufrOrUnsupportedCharacterException.hpp"
 #include "DoubleClassScope.hpp"
 #include "DoubleValue.hpp"
@@ -12,6 +15,7 @@
 #include "FunParam.hpp"
 #include "IntClassScope.hpp"
 #include "IntValue.hpp"
+#include "Interpreter.hpp"
 #include "KeywordToken.hpp"
 #include "LongClassScope.hpp"
 #include "LongValue.hpp"
@@ -20,18 +24,28 @@
 #include "FunDecl.hpp"
 #include "RefValue.hpp"
 #include "SharedPtrTypes.hpp"
+#include "ShortClassScope.hpp"
+#include "ShortValue.hpp"
 #include "StringClassScope.hpp"
 #include "StringValue.hpp"
 #include "Type.hpp"
+#include "ByteClassScope.hpp"
+#include "UByteClassScope.hpp"
+#include "UByteValue.hpp"
 #include "UIntClassScope.hpp"
 #include "UIntValue.hpp"
 #include "ULongClassScope.hpp"
 #include "ULongValue.hpp"
-#include "UnitValue.hpp"
+#include "UShortClassScope.hpp"
+#include "UShortValue.hpp"
+#include "VoidValue.hpp"
 #include "ArrayClassScope.hpp"
+#include "Variable.hpp"
 #include "ainio.hpp"
 #include "FileScope.hpp"
 #include "runtime/NumberFormatException.hpp"
+#include "BuiltInFilePaths.hpp"
+#include "string_helper.hpp"
 #include "wchar_t_helper.hpp"
 #include <exception>
 #include <limits>
@@ -46,7 +60,8 @@ BuiltInFunScope::BuiltInFunScope(
     SharedType returnType,
     std::vector<std::pair<std::wstring, SharedType>>params,
     std::function<void(Interpreter*)> invokeOnInterpreterFun,
-    bool isOperator
+    bool isOperator,
+    std::function<std::vector<Assembler::AsmInstruction>(Compiler* compiler)> onGenerateAsm
 ):
     FunScope(
         0,
@@ -58,25 +73,344 @@ BuiltInFunScope::BuiltInFunScope(
             std::make_shared<std::vector<SharedFunParam>>()
         )
     ),
-    invokeOnInterpreterFun(invokeOnInterpreterFun)
+    invokeOnInterpreterFun(invokeOnInterpreterFun),
+    onGenerateAsm(onGenerateAsm)
 {
     for(auto paramsIterator:params){
+        auto name=std::make_shared<std::wstring>(paramsIterator.first);
+        auto type=paramsIterator.second;
+        auto isVal=std::make_shared<bool>(true);
         decl->params->push_back(
-            std::make_shared<FunParam>(
-                std::make_shared<std::wstring>(paramsIterator.first),
-                paramsIterator.second
-            )
+            std::make_shared<FunParam>(name,type)
         );
+        (*locals)[*name]=std::make_shared<Variable>(name,type,isVal);
     }
 }
 
 BuiltInFunScope::~BuiltInFunScope(){}
 
+std::shared_ptr<BuiltInFunScope> BuiltInFunScope::INLINE_ASM=NULL;
+std::shared_ptr<BuiltInFunScope> BuiltInFunScope::INT_TO_CHAR=NULL;
+
 void BuiltInFunScope::invokeOnInterpreter(Interpreter* interpreter){
     invokeOnInterpreterFun(interpreter);
 }
 
+std::vector<Assembler::AsmInstruction> BuiltInFunScope::getGeneratedAsm(Compiler* compiler){
+    return onGenerateAsm(compiler);
+}
+
 void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
+
+    if(!INLINE_ASM)
+        INLINE_ASM=std::make_shared<BuiltInFunScope>(
+            INLINE_ASM_NAME,
+            Type::VOID,
+            std::vector<std::pair<std::wstring, SharedType>>{
+                {STRING_PARAM_NAME,Type::STRING},
+            },
+            [](Interpreter* interpreter){}
+        );
+    
+    auto SYSCALL0=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto SYSCALL1=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto SYSCALL2=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto SYSCALL3=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto SYSCALL4=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+            {L"_R10_",Type::LONG}, // r10
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::R10()),
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto SYSCALL5=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+            {L"_R10_",Type::LONG}, // r10
+            {L"_R8_",Type::LONG} , // r8
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::R8()),
+                Assembler::pop(Assembler::R10()),
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto SYSCALL6=std::make_shared<BuiltInFunScope>(
+        SYSCALL_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"_RAX_",Type::LONG}, // rax
+            {L"_RDI_",Type::LONG}, // rdi
+            {L"_RSI_",Type::LONG}, // rsi
+            {L"_RDX_",Type::LONG}, // rdx
+            {L"_R10_",Type::LONG}, // r10
+            {L"_R8_",Type::LONG} , // r8
+            {L"_R9_",Type::LONG} , // r9
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::R9()),
+                Assembler::pop(Assembler::R8()),
+                Assembler::pop(Assembler::R10()),
+                Assembler::pop(Assembler::RDX()),
+                Assembler::pop(Assembler::RSI()),
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::syscall(),
+            };
+        }
+    );
+
+    auto BRK=std::make_shared<BuiltInFunScope>(
+        BRK_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"الإزاحة",Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::mov(Assembler::RSI(), Assembler::addressMov(Assembler::brk_end())),
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+"+Assembler::RSI().value)),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"12")),
+                Assembler::syscall(),
+                Assembler::mov(Assembler::addressMov(Assembler::brk_end()), Assembler::RAX())
+            };
+        }
+    );
+
+    auto WRITE_CHAR_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::VOID,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {CHAR_PARAM_NAME,Type::CHAR},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::mov(Assembler::RDI(Assembler::AsmInstruction::DWORD), Assembler::addressMov(Assembler::RSP())),
+                Assembler::add(Assembler::RSP(), Assembler::imm(L"4")),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI(Assembler::AsmInstruction::DWORD)),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
+        }
+    );
+
+    auto WRITE_BYTE_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::VOID,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {BYTE_PARAM_NAME,Type::BYTE},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::mov(Assembler::RDI(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RSP())),
+                Assembler::add(Assembler::RSP(), Assembler::imm(L"1")),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI(Assembler::AsmInstruction::BYTE)),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
+        }
+    );
+
+    auto WRITE_LONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::VOID,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {LONG_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI()),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
+        }
+    );
+
+    auto WRITE_ULONG_TO_ADDRESS=std::make_shared<BuiltInFunScope>(
+        WRITE_TO_ADDRESS_NAME,
+        Type::VOID,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+            {ULONG_PARAM_NAME,Type::ULONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RDI()),
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDI()),
+                Assembler::zero(Assembler::RAX()) // It returns 0 after a successful write
+            };
+        }
+    );
+
+    auto READ_BYTE_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_BYTE_FROM_ADDRESS_NAME,
+        Type::BYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::RAX()))
+            };
+        }
+    );
+
+    auto READ_INT_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_INT_FROM_ADDRESS_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::addressMov(Assembler::RAX()))
+            };
+        }
+    );
+
+    auto READ_LONG_FROM_ADDRESS=std::make_shared<BuiltInFunScope>(
+        READ_LONG_FROM_ADDRESS_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {ADDRESS_PARAM_NAME,Type::LONG},
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler)->std::vector<Assembler::AsmInstruction>{
+            return{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(), Assembler::addressMov(Assembler::RAX()))
+            };
+        }
+    );
 
     auto READ=std::make_shared<BuiltInFunScope>(
         READ_NAME,
@@ -98,172 +432,194 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
         }
     );
 
-    auto PRINT_INVOKE_INTERPRETER_FUN=
-    [](Interpreter* interpreter){
-        auto msg=interpreter->top();
-        ainprint(msg->toString(), false);
-        interpreter->AX=std::make_shared<UnitValue>();
-    };
-
-    auto PRINTLN_INVOKE_INTERPRETER_FUN=
-    [](Interpreter* interpreter){
-        auto msg=interpreter->top();
-        ainprint(msg->toString(), true);
-        interpreter->AX=std::make_shared<UnitValue>();
-    };
-
-    auto PRINT_INT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_INT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_UINT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{UINT_PARAM_NAME,Type::UINT}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_UINT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{UINT_PARAM_NAME,Type::UINT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_LONG=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME,Type::LONG}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_LONG=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME,Type::LONG}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_ULONG=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{ULONG_PARAM_NAME,Type::ULONG}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_ULONG=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{ULONG_PARAM_NAME,Type::ULONG}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_FLOAT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_FLOAT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_DOUBLE=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_DOUBLE=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINT_CHAR=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{CHAR_PARAM_NAME,Type::CHAR}},
-        PRINT_INVOKE_INTERPRETER_FUN
-    );
-
-    auto PRINTLN_CHAR=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{CHAR_PARAM_NAME,Type::CHAR}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
-    );
-
     auto PRINT_STRING=std::make_shared<BuiltInFunScope>(
         PRINT_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        PRINT_INVOKE_INTERPRETER_FUN
+        [](Interpreter* interpreter){
+            auto msg=interpreter->top();
+            ainprint(msg->toString(), false);
+            interpreter->AX=std::make_shared<VoidValue>();
+        },
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RDI(), Assembler::imm(L"1")),
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // first char
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX())), // size
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")), // sys_write
+                Assembler::syscall(L"طباعة نص")
+            };
+        }
     );
 
     auto PRINTLN_STRING=std::make_shared<BuiltInFunScope>(
         PRINTLN_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
+        [](Interpreter* interpreter){
+            auto msg=interpreter->top();
+            ainprint(msg->toString(), true);
+            interpreter->AX=std::make_shared<VoidValue>();
+        },
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RAX()),
+                Assembler::mov(Assembler::RDI(), Assembler::imm(L"1")),
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // first char
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX())), // size
+                Assembler::lea(Assembler::R8(), Assembler::addressLea(Assembler::RAX().value+L"+8+"+Assembler::RDX().value)), // The address of the byte after the last char
+                Assembler::mov(Assembler::R9(Assembler::AsmInstruction::BYTE), Assembler::addressMov(Assembler::R8())), // The byte after the last char
+                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::imm(L"0x0a"), Assembler::AsmInstruction::BYTE), // mov '\n' to the address of that byte
+                Assembler::add(Assembler::RDX(), Assembler::imm(L"1")), // add 1 for size for the '\n' char
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")), // sys_write
+                Assembler::syscall(L"طباعة نص"),
+                Assembler::mov(Assembler::addressMov(Assembler::R8()), Assembler::R9(Assembler::AsmInstruction::BYTE)) // restore the byte after the last char
+            };
+        }
     );
 
-    auto PRINT_BOOL=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{BOOL_PARAM_NAME,Type::BOOL}},
-        PRINT_INVOKE_INTERPRETER_FUN
+    auto ROUND_FLOAT=std::make_shared<BuiltInFunScope>(
+        ROUND_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 0),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
     );
 
-    auto PRINTLN_BOOL=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{BOOL_PARAM_NAME,Type::BOOL}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
+    auto ROUND_DOUBLE=std::make_shared<BuiltInFunScope>(
+        ROUND_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 0),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
     );
 
-    auto PRINT_UNIT=std::make_shared<BuiltInFunScope>(
-        PRINT_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{UNIT_PARAM_NAME,Type::UNIT}},
-        PRINT_INVOKE_INTERPRETER_FUN
+    auto FLOOR_FLOAT=std::make_shared<BuiltInFunScope>(
+        FLOOR_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 1),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
     );
 
-    auto PRINTLN_UNIT=std::make_shared<BuiltInFunScope>(
-        PRINTLN_NAME,
-        Type::UNIT,
-        std::vector<std::pair<std::wstring, SharedType>>{{UNIT_PARAM_NAME,Type::UNIT}},
-        PRINTLN_INVOKE_INTERPRETER_FUN
+    auto FLOOR_DOUBLE=std::make_shared<BuiltInFunScope>(
+        FLOOR_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 1),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
     );
 
+    auto CEIL_FLOAT=std::make_shared<BuiltInFunScope>(
+        CEILING_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 2),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto CEIL_DOUBLE=std::make_shared<BuiltInFunScope>(
+        CEILING_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 2),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TRUNCATE_FLOAT=std::make_shared<BuiltInFunScope>(
+        TRUNCATE_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME,Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::roundss(Assembler::XMM0(), Assembler::XMM0(), 4),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD),Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TRUNCATE_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TRUNCATE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME,Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::roundsd(Assembler::XMM0(), Assembler::XMM0(), 4),
+                Assembler::movq(Assembler::RAX(),Assembler::XMM0())
+            };
+        }
+    );
     auto builtInFunctions={
+        INLINE_ASM,
+        SYSCALL0,
+        SYSCALL1,
+        SYSCALL2,
+        SYSCALL3,
+        SYSCALL4,
+        SYSCALL5,
+        SYSCALL6,
+        BRK,
+        WRITE_CHAR_TO_ADDRESS,
+        WRITE_BYTE_TO_ADDRESS,
+        WRITE_LONG_TO_ADDRESS,
+        WRITE_ULONG_TO_ADDRESS,
+        READ_BYTE_FROM_ADDRESS,
+        READ_LONG_FROM_ADDRESS,
         READ,READ_LINE,
-        PRINT_INT,PRINTLN_INT,
-        PRINT_UINT,PRINTLN_UINT,
-        PRINT_LONG,PRINTLN_LONG,
-        PRINT_ULONG,PRINTLN_ULONG,
-        PRINT_FLOAT,PRINTLN_FLOAT,
-        PRINT_DOUBLE,PRINTLN_DOUBLE,
-        PRINT_CHAR,PRINTLN_CHAR,
         PRINT_STRING,PRINTLN_STRING,
-        PRINT_BOOL,PRINTLN_BOOL,
-        PRINT_UNIT,PRINTLN_UNIT,
+        ROUND_FLOAT,FLOOR_FLOAT,CEIL_FLOAT,TRUNCATE_FLOAT,
+        ROUND_DOUBLE,FLOOR_DOUBLE,CEIL_DOUBLE,TRUNCATE_DOUBLE,
     };
     auto privateFunctions=fileScope->getPrivateFunctions();
     for(auto builtInFun:builtInFunctions){
@@ -272,6 +628,10 @@ void BuiltInFunScope::addBuiltInFunctionsTo(SharedFileScope fileScope){
 }
 
 void BuiltInFunScope::addBuiltInFunctionsToBuiltInClasses() {
+    addBuiltInFunctionsToByteClass();
+    addBuiltInFunctionsToUByteClass();
+    addBuiltInFunctionsToShortClass();
+    addBuiltInFunctionsToUShortClass();
     addBuiltInFunctionsToIntClass();
     addBuiltInFunctionsToUIntClass();
     addBuiltInFunctionsToLongClass();
@@ -281,15 +641,137 @@ void BuiltInFunScope::addBuiltInFunctionsToBuiltInClasses() {
     addBuiltInFunctionsToBoolClass();
     addBuiltInFunctionsToCharClass();
     addBuiltInFunctionsToStringClass();
-    addBuiltInFunctionsToUnitClass();
+    addBuiltInFunctionsToVoidClass();
     addBuiltInFunctionsToArrayClass();
 }
 
-void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
+void BuiltInFunScope::addBuiltInFunctionsToByteClass(){
 
-    auto classScope=std::dynamic_pointer_cast<IntClassScope>(Type::INT->getClassScope());
+    auto classScope=std::dynamic_pointer_cast<ByteClassScope>(Type::BYTE->getClassScope());
     
     using PrimitiveType=int;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto PLUS_SHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
 
     auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, IntValue>(
         classScope,
@@ -305,18 +787,58 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG
     );
 
-    auto PLUS_FLOAT=getPlusFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto PLUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_DOUBLE=getPlusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto PLUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MINUS_SHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, IntValue>(
@@ -333,18 +855,58 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG
     );
 
-    auto MINUS_FLOAT=getMinusFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto MINUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_DOUBLE=getMinusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto MINUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto TIMES_SHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, IntValue>(
@@ -361,18 +923,58 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG
     );
 
-    auto TIMES_FLOAT=getTimesFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto TIMES_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_DOUBLE=getTimesFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto TIMES_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto DIV_SHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto DIV_INT=getDivFun<PrimitiveType, IntValue, IntValue>(
@@ -389,18 +991,58 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG
     );
 
-    auto DIV_FLOAT=getDivFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto DIV_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_DOUBLE=getDivFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto DIV_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MOD_SHORT=getModFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto MOD_INT=getModFun<PrimitiveType, IntValue, IntValue>(
@@ -417,6 +1059,18 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG
     );
 
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_SHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
         classScope,
         INT_PARAM_NAME,
@@ -429,16 +1083,2101 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::LONG
     );
 
-    auto COMPARE_TO_FLOAT=getCompareToFun<PrimitiveType, FloatValue>(
+    auto EQUALS=getEqualsFun<PrimitiveType>(
         classScope,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        BYTE_PARAM_NAME,
+        Type::BYTE
     );
 
-    auto COMPARE_TO_DOUBLE=getCompareToFun<PrimitiveType, DoubleValue>(
+    auto UNARY_PLUS=getUnaryPlusFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto UNARY_MINUS=getUnaryMinusFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto INC=getIncFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto DEC=getDecFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=std::make_shared<BuiltInFunScope>(
+        TO_SHORT_NAME,
+        Type::SHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+            };
+        }
+    );
+
+    auto TO_USHORT=std::make_shared<BuiltInFunScope>(
+        TO_USHORT_NAME,
+        Type::USHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+            };
+        }
+    );
+
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde()
+            };
+        }
+    );
+
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde()
+            };
+        }
+    );
+
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
+
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto SHR=getShrFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto SHL=getShlFun<PrimitiveType,ByteValue>(classScope,Type::BYTE);
+
+    auto BIT_AND=getBitAndFun<PrimitiveType,ByteValue>(
         classScope,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        Type::BYTE,
+        BYTE_PARAM_NAME
+    );
+
+    auto XOR=getXorFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME
+    );
+
+    auto BIT_OR=getBitOrFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME
+    );
+
+    auto BIT_NOT=getBitNotFun<PrimitiveType,ByteValue>(
+        classScope,
+        Type::BYTE
+    );
+
+    auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_BYTE,PLUS_SHORT,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_SHORT,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_SHORT,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_SHORT,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_SHORT,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_SHORT,COMPARE_TO_INT,COMPARE_TO_LONG,
+        EQUALS,
+        UNARY_PLUS,UNARY_MINUS,
+        INC,DEC,
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+    };
+
+    auto publicFuns=classScope->getPublicFunctions();
+    for(auto fun:funs){
+        (*publicFuns)[fun->getDecl()->toString()]=fun;
+    }
+    
+}
+
+void BuiltInFunScope::addBuiltInFunctionsToUByteClass(){
+
+    auto classScope=std::dynamic_pointer_cast<UByteClassScope>(Type::UBYTE->getClassScope());
+    
+    using PrimitiveType=unsigned int;
+
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"8")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto PLUS_USHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto PLUS_ULONG=getPlusFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MINUS_USHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto MINUS_ULONG=getMinusFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto TIMES_USHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto TIMES_ULONG=getTimesFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto DIV_USHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto DIV_ULONG=getDivFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MOD_USHORT=getModFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto MOD_UINT=getModFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto MOD_ULONG=getModFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto COMPARE_TO_USHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
+        classScope,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto COMPARE_TO_ULONG=getCompareToFun<PrimitiveType, ULongValue>(
+        classScope,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto EQUALS=getEqualsFun<PrimitiveType>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto INC=getIncFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
+
+    auto DEC=getDecFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=std::make_shared<BuiltInFunScope>(
+        TO_SHORT_NAME,
+        Type::SHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
+
+    auto TO_USHORT=std::make_shared<BuiltInFunScope>(
+        TO_USHORT_NAME,
+        Type::USHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
+
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
+
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
+
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF"))
+            };
+        }
+    );
+
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto SHR=getShrFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
+
+    auto SHL=getShlFun<PrimitiveType,UByteValue>(classScope,Type::UBYTE);
+
+    auto BIT_AND=getBitAndFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME
+    );
+
+    auto XOR=getXorFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME
+    );
+
+    auto BIT_OR=getBitOrFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME
+    );
+
+    auto BIT_NOT=getBitNotFun<PrimitiveType,UByteValue>(
+        classScope,
+        Type::UBYTE
+    );
+
+    auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_UBYTE,PLUS_USHORT,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_USHORT,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_USHORT,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_USHORT,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_USHORT,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_USHORT,COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        EQUALS,
+        INC,DEC,
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+    };
+
+    auto publicFuns=classScope->getPublicFunctions();
+    for(auto fun:funs){
+        (*publicFuns)[fun->getDecl()->toString()]=fun;
+    }
+    
+}
+
+void BuiltInFunScope::addBuiltInFunctionsToShortClass(){
+
+    auto classScope=std::dynamic_pointer_cast<ShortClassScope>(Type::SHORT->getClassScope());
+    
+    using PrimitiveType=int;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"15")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"15")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto PLUS_SHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto PLUS_LONG=getPlusFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto PLUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto PLUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MINUS_SHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto MINUS_LONG=getMinusFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto MINUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto TIMES_SHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto TIMES_LONG=getTimesFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto TIMES_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto DIV_SHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto DIV_INT=getDivFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto DIV_LONG=getDivFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto DIV_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::BYTE,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MOD_SHORT=getModFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto MOD_INT=getModFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto MOD_LONG=getModFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_SHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
+        classScope,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto COMPARE_TO_LONG=getCompareToFun<PrimitiveType, LongValue>(
+        classScope,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto EQUALS=getEqualsFun<PrimitiveType>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto UNARY_PLUS=getUnaryPlusFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
+
+    auto UNARY_MINUS=getUnaryMinusFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
+
+    auto INC=getIncFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
+
+    auto DEC=getDecFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=getToShortFun<PrimitiveType>(classScope);
+
+    auto TO_USHORT=getToUShortFun<PrimitiveType>(classScope);
+
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde()
+            };
+        }
+    );
+
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde()
+            };
+        }
+    );
+
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cdqe()
+            };
+        }
+    );
+
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto SHR=getShrFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
+
+    auto SHL=getShlFun<PrimitiveType,ShortValue>(classScope,Type::SHORT);
+
+    auto BIT_AND=getBitAndFun<PrimitiveType,ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME
+    );
+
+    auto XOR=getXorFun<PrimitiveType,ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME
+    );
+
+    auto BIT_OR=getBitOrFun<PrimitiveType,ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME
+    );
+
+    auto BIT_NOT=getBitNotFun<PrimitiveType,ShortValue>(
+        classScope,
+        Type::SHORT
+    );
+
+    auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_BYTE,PLUS_SHORT,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_SHORT,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_SHORT,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_SHORT,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_SHORT,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_SHORT,COMPARE_TO_INT,COMPARE_TO_LONG,
+        EQUALS,
+        UNARY_PLUS,UNARY_MINUS,
+        INC,DEC,
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+    };
+
+    auto publicFuns=classScope->getPublicFunctions();
+    for(auto fun:funs){
+        (*publicFuns)[fun->getDecl()->toString()]=fun;
+    }
+    
+}
+
+void BuiltInFunScope::addBuiltInFunctionsToUShortClass(){
+
+    auto classScope=std::dynamic_pointer_cast<UShortClassScope>(Type::USHORT->getClassScope());
+    
+    using PrimitiveType=unsigned int;
+
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"15")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"15")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"16")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto PLUS_USHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto PLUS_ULONG=getPlusFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MINUS_USHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto MINUS_ULONG=getMinusFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto TIMES_USHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto TIMES_ULONG=getTimesFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto DIV_USHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto DIV_ULONG=getDivFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, UByteValue>(
+        classScope,
+        Type::UBYTE,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MOD_USHORT=getModFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto MOD_UINT=getModFun<PrimitiveType, UIntValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto MOD_ULONG=getModFun<PrimitiveType, ULongValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto COMPARE_TO_USHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
+        classScope,
+        UINT_PARAM_NAME,
+        Type::UINT
+    );
+
+    auto COMPARE_TO_ULONG=getCompareToFun<PrimitiveType, ULongValue>(
+        classScope,
+        ULONG_PARAM_NAME,
+        Type::ULONG
+    );
+
+    auto EQUALS=getEqualsFun<PrimitiveType>(
+        classScope,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
+    auto INC=getIncFun<PrimitiveType,UShortValue>(classScope,Type::USHORT);
+
+    auto DEC=getDecFun<PrimitiveType,UShortValue>(classScope,Type::USHORT);
+
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=getToShortFun<PrimitiveType>(classScope);
+
+    auto TO_USHORT=getToUShortFun<PrimitiveType>(classScope);
+
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF"))
+            };
+        }
+    );
+
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF"))
+            };
+        }
+    );
+
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF"))
+            };
+        }
+    );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF"))
+            };
+        }
+    );
+
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFF")),
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto SHR=getShrFun<PrimitiveType,UShortValue>(classScope,Type::USHORT);
+
+    auto SHL=getShlFun<PrimitiveType,UShortValue>(classScope,Type::USHORT);
+
+    auto BIT_AND=getBitAndFun<PrimitiveType,UShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME
+    );
+
+    auto XOR=getXorFun<PrimitiveType,UShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME
+    );
+
+    auto BIT_OR=getBitOrFun<PrimitiveType,UShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME
+    );
+
+    auto BIT_NOT=getBitNotFun<PrimitiveType,UShortValue>(
+        classScope,
+        Type::USHORT
+    );
+
+    auto funs={
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_UBYTE,PLUS_USHORT,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_USHORT,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_USHORT,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_USHORT,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_USHORT,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_USHORT,COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        EQUALS,
+        INC,DEC,
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+    };
+
+    auto publicFuns=classScope->getPublicFunctions();
+    for(auto fun:funs){
+        (*publicFuns)[fun->getDecl()->toString()]=fun;
+    }
+    
+}
+
+void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
+
+    auto classScope=std::dynamic_pointer_cast<IntClassScope>(Type::INT->getClassScope());
+    
+    using PrimitiveType=int;
+
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto PLUS_SHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto PLUS_LONG=getPlusFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto PLUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto PLUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MINUS_SHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto MINUS_LONG=getMinusFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto MINUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto TIMES_SHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto TIMES_LONG=getTimesFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto TIMES_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto DIV_SHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto DIV_INT=getDivFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto DIV_LONG=getDivFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto DIV_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, IntValue>(
+        classScope,
+        Type::INT,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MOD_SHORT=getModFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto MOD_INT=getModFun<PrimitiveType, IntValue, IntValue>(
+        classScope,
+        Type::INT,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto MOD_LONG=getModFun<PrimitiveType, LongValue, LongValue>(
+        classScope,
+        Type::LONG,
+        LONG_PARAM_NAME,
+        Type::LONG
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_SHORT=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
+    auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
+        classScope,
+        INT_PARAM_NAME,
+        Type::INT
+    );
+
+    auto COMPARE_TO_LONG=getCompareToFun<PrimitiveType, LongValue>(
+        classScope,
+        LONG_PARAM_NAME,
+        Type::LONG
     );
 
     auto EQUALS=getEqualsFun<PrimitiveType>(
@@ -455,33 +3194,92 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
 
     auto DEC=getDecFun<PrimitiveType,IntValue>(classScope,Type::INT);
 
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=getToShortFun<PrimitiveType>(classScope);
+
+    auto TO_USHORT=getToUShortFun<PrimitiveType>(classScope);
+
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
-
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
-
-    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
-
-    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
-
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
-
-    auto TO_CHAR=std::make_shared<BuiltInFunScope>(
-        TO_CHAR_NAME,
-        Type::CHAR,
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
         std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=std::dynamic_pointer_cast<IntValue>(interpreter->AX)->getValue();
-            wchar_t charValue=static_cast<wchar_t>(val);
-            if(isKufrOrUnsupportedCharacter(charValue))
-                // TODO: show line number
-                throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
-            interpreter->AX=std::make_shared<CharValue>(charValue);
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cdqe()
+            };
         }
     );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cdqe()
+            };
+        }
+    );
+
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    if(!INT_TO_CHAR)
+        INT_TO_CHAR=std::make_shared<BuiltInFunScope>(
+            TO_CHAR_NAME,
+            Type::CHAR,
+            std::vector<std::pair<std::wstring, SharedType>>{},
+            [](Interpreter* interpreter){
+                auto val=std::dynamic_pointer_cast<IntValue>(interpreter->AX)->getValue();
+                wchar_t charValue=static_cast<wchar_t>(val);
+                if(isKufrOrUnsupportedCharacter(charValue))
+                    // TODO: show line number
+                    throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
+                interpreter->AX=std::make_shared<CharValue>(charValue);
+            },
+            false,
+            [=](Compiler* compiler){
+                return std::vector{
+                    Assembler::ret()
+                };
+            }
+        );
 
     auto SHR=getShrFun<PrimitiveType,IntValue>(classScope,Type::INT);
 
@@ -510,19 +3308,32 @@ void BuiltInFunScope::addBuiltInFunctionsToIntClass(){
         Type::INT
     );
 
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
+
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        MOD_INT,MOD_LONG,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_BYTE,PLUS_SHORT,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_SHORT,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_SHORT,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_SHORT,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_SHORT,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_SHORT,COMPARE_TO_INT,COMPARE_TO_LONG,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,TO_CHAR,
-        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        INT_TO_CHAR,
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -538,6 +3349,128 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     
     using PrimitiveType=unsigned int;
 
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"31")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFFFFFFFF")),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"32")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto PLUS_USHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
     auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, UIntValue>(
         classScope,
         Type::UINT,
@@ -550,6 +3483,20 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MINUS_USHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
     );
 
     auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, UIntValue>(
@@ -566,6 +3513,20 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG
     );
 
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto TIMES_USHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
     auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, UIntValue>(
         classScope,
         Type::UINT,
@@ -578,6 +3539,20 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto DIV_USHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
     );
 
     auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, UIntValue>(
@@ -594,6 +3569,20 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG
     );
 
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, UIntValue>(
+        classScope,
+        Type::UINT,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MOD_USHORT=getModFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
     auto MOD_UINT=getModFun<PrimitiveType, UIntValue, UIntValue>(
         classScope,
         Type::UINT,
@@ -606,6 +3595,18 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, UByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto COMPARE_TO_USHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        USHORT_PARAM_NAME,
+        Type::USHORT
     );
 
     auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
@@ -630,19 +3631,77 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
 
     auto DEC=getDecFun<PrimitiveType,UIntValue>(classScope,Type::UINT);
 
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=getToShortFun<PrimitiveType>(classScope);
+
+    auto TO_USHORT=getToUShortFun<PrimitiveType>(classScope);
+
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::mov(
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD),
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD)
+                )
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::mov(
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD),
+                    Assembler::RAX(Assembler::AsmInstruction::DWORD)
+                )
+            };
+        }
+    );
 
-    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
 
-    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
-
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
 
     auto SHR=getShrFun<PrimitiveType,UIntValue>(classScope,Type::UINT);
 
@@ -672,16 +3731,21 @@ void BuiltInFunScope::addBuiltInFunctionsToUIntClass(){
     );
 
     auto funs={
-        PLUS_UINT,PLUS_ULONG,
-        MINUS_UINT,MINUS_ULONG,
-        TIMES_UINT,TIMES_ULONG,
-        DIV_UINT,DIV_ULONG,
-        MOD_UINT,MOD_ULONG,
-        COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_UBYTE,PLUS_USHORT,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_USHORT,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_USHORT,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_USHORT,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_USHORT,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_USHORT,COMPARE_TO_UINT,COMPARE_TO_ULONG,
         EQUALS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -698,6 +3762,124 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
     
     using PrimitiveType=long long;
 
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_BYTE=getPlusFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto PLUS_SHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
     auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, LongValue>(
         classScope,
         Type::LONG,
@@ -712,18 +3894,54 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
-    auto PLUS_FLOAT=getPlusFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto PLUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_DOUBLE=getPlusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto PLUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_BYTE=getMinusFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MINUS_SHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, LongValue>(
@@ -740,18 +3958,54 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
-    auto MINUS_FLOAT=getMinusFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto MINUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_DOUBLE=getMinusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto MINUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_BYTE=getTimesFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto TIMES_SHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, LongValue>(
@@ -768,18 +4022,54 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
-    auto TIMES_FLOAT=getTimesFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto TIMES_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_DOUBLE=getTimesFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto TIMES_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_BYTE=getDivFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto DIV_SHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto DIV_INT=getDivFun<PrimitiveType, IntValue, LongValue>(
@@ -796,18 +4086,54 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
-    auto DIV_FLOAT=getDivFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto DIV_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to float
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_DOUBLE=getDivFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto DIV_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // 2nd arg
+                Assembler::pop(Assembler::RAX()), // 1st arg
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MOD_BYTE=getModFun<PrimitiveType, ByteValue, LongValue>(
+        classScope,
+        Type::LONG,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto MOD_SHORT=getModFun<PrimitiveType, ByteValue, ByteValue>(
+        classScope,
+        Type::SHORT,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto MOD_INT=getModFun<PrimitiveType, IntValue, LongValue>(
@@ -824,6 +4150,18 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_SHORT=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
+    );
+
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
         classScope,
         INT_PARAM_NAME,
@@ -834,18 +4172,6 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         classScope,
         LONG_PARAM_NAME,
         Type::LONG
-    );
-
-    auto COMPARE_TO_FLOAT=getCompareToFun<PrimitiveType, FloatValue>(
-        classScope,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
-    );
-
-    auto COMPARE_TO_DOUBLE=getCompareToFun<PrimitiveType, DoubleValue>(
-        classScope,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
     );
 
     auto EQUALS=getEqualsFun<PrimitiveType>(
@@ -862,19 +4188,49 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
 
     auto DEC=getDecFun<PrimitiveType,LongValue>(classScope,Type::LONG);
 
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=getToShortFun<PrimitiveType>(classScope);
+
+    auto TO_USHORT=getToUShortFun<PrimitiveType>(classScope);
+
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=getToLongFun<PrimitiveType>(classScope);
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=getToULongFun<PrimitiveType>(classScope);
 
-    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
 
-    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
-
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
 
     auto SHR=getShrFun<PrimitiveType,LongValue>(classScope,Type::LONG);
 
@@ -903,19 +4259,32 @@ void BuiltInFunScope::addBuiltInFunctionsToLongClass(){
         Type::LONG
     );
 
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
+
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        MOD_INT,MOD_LONG,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_BYTE,PLUS_SHORT,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_SHORT,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_SHORT,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_SHORT,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        MOD_BYTE,MOD_SHORT,MOD_INT,MOD_LONG,
+        COMPARE_TO_BYTE,COMPARE_TO_SHORT,COMPARE_TO_INT,COMPARE_TO_LONG,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,
-        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        
+        SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -931,6 +4300,124 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     
     using PrimitiveType=unsigned long long;
 
+    auto LZCNT=std::make_shared<BuiltInFunScope>(
+        LZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto LOCNT=std::make_shared<BuiltInFunScope>(
+        LOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsr(Assembler::RAX(), Assembler::RAX()),
+                Assembler::_xor(Assembler::RAX(), Assembler::imm(L"63")),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TZCNT=std::make_shared<BuiltInFunScope>(
+        TZCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+            
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto TOCNT=std::make_shared<BuiltInFunScope>(
+        TOCNT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto ifNumStr=std::to_wstring(++compiler->currentIfLabelsSize);
+            auto ifLabelStr=L"if"+ifNumStr;
+            auto elseLabelStr=L"else"+ifNumStr;
+            auto endLabelStr=L"end"+ifNumStr;
+
+            return std::vector{
+                Assembler::localLabel(ifLabelStr),
+                Assembler::_not(Assembler::RAX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jz(Assembler::label(L"."+elseLabelStr)),
+                Assembler::bsf(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jmp(Assembler::label(L"."+endLabelStr)),
+                Assembler::localLabel(elseLabelStr),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"64")),
+                Assembler::localLabel(endLabelStr)
+            };
+        }
+    );
+
+    auto PLUS_UBYTE=getPlusFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto PLUS_USHORT=getPlusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
     auto PLUS_UINT=getPlusFun<PrimitiveType, UIntValue, ULongValue>(
         classScope,
         Type::ULONG,
@@ -943,6 +4430,20 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto MINUS_UBYTE=getMinusFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MINUS_USHORT=getMinusFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
     );
 
     auto MINUS_UINT=getMinusFun<PrimitiveType, UIntValue, ULongValue>(
@@ -959,6 +4460,20 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG
     );
 
+    auto TIMES_UBYTE=getTimesFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto TIMES_USHORT=getTimesFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
     auto TIMES_UINT=getTimesFun<PrimitiveType, UIntValue, ULongValue>(
         classScope,
         Type::ULONG,
@@ -971,6 +4486,20 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto DIV_UBYTE=getDivFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto DIV_USHORT=getDivFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
     );
 
     auto DIV_UINT=getDivFun<PrimitiveType, UIntValue, ULongValue>(
@@ -987,6 +4516,20 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG
     );
 
+    auto MOD_UBYTE=getTimesFun<PrimitiveType, UByteValue, ULongValue>(
+        classScope,
+        Type::ULONG,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto MOD_USHORT=getModFun<PrimitiveType, ShortValue, ShortValue>(
+        classScope,
+        Type::USHORT,
+        USHORT_PARAM_NAME,
+        Type::USHORT
+    );
+
     auto MOD_UINT=getModFun<PrimitiveType, UIntValue, ULongValue>(
         classScope,
         Type::ULONG,
@@ -999,6 +4542,18 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
         Type::ULONG,
         ULONG_PARAM_NAME,
         Type::ULONG
+    );
+
+    auto COMPARE_TO_UBYTE=getCompareToFun<PrimitiveType, UByteValue>(
+        classScope,
+        UBYTE_PARAM_NAME,
+        Type::UBYTE
+    );
+
+    auto COMPARE_TO_USHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        USHORT_PARAM_NAME,
+        Type::USHORT
     );
 
     auto COMPARE_TO_UINT=getCompareToFun<PrimitiveType, UIntValue>(
@@ -1023,19 +4578,49 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
 
     auto DEC=getDecFun<PrimitiveType,ULongValue>(classScope,Type::ULONG);
 
+    auto TO_BYTE=getToByteFun<PrimitiveType>(classScope);
+
+    auto TO_UBYTE=getToUByteFun<PrimitiveType>(classScope);
+
+    auto TO_SHORT=getToShortFun<PrimitiveType>(classScope);
+
+    auto TO_USHORT=getToUShortFun<PrimitiveType>(classScope);
+
     auto TO_INT=getToIntFun<PrimitiveType>(classScope);
 
     auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_LONG=getToLongFun<PrimitiveType>(classScope);
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_ULONG=getToULongFun<PrimitiveType>(classScope);
 
-    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2ss(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
 
-    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
-
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
 
     auto SHR=getShrFun<PrimitiveType,ULongValue>(classScope,Type::ULONG);
 
@@ -1065,16 +4650,21 @@ void BuiltInFunScope::addBuiltInFunctionsToULongClass(){
     );
 
     auto funs={
-        PLUS_UINT,PLUS_ULONG,
-        MINUS_UINT,MINUS_ULONG,
-        TIMES_UINT,TIMES_ULONG,
-        DIV_UINT,DIV_ULONG,
-        MOD_UINT,MOD_ULONG,
-        COMPARE_TO_UINT,COMPARE_TO_ULONG,
+        LZCNT,LOCNT,TZCNT,TOCNT,
+        PLUS_UBYTE,PLUS_USHORT,PLUS_UINT,PLUS_ULONG,
+        MINUS_UBYTE,MINUS_USHORT,MINUS_UINT,MINUS_ULONG,
+        TIMES_UBYTE,TIMES_USHORT,TIMES_UINT,TIMES_ULONG,
+        DIV_UBYTE,DIV_USHORT,DIV_UINT,DIV_ULONG,
+        MOD_UBYTE,MOD_USHORT,MOD_UINT,MOD_ULONG,
+        COMPARE_TO_UBYTE,COMPARE_TO_USHORT,COMPARE_TO_UINT,COMPARE_TO_ULONG,
         EQUALS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING,
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        
         SHR,SHL,BIT_AND,XOR,BIT_OR,BIT_NOT
     };
 
@@ -1091,116 +4681,460 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
     
     using PrimitiveType=float;
 
-    auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, FloatValue>(
-        classScope,
+    auto PLUS_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::FLOAT,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_LONG=getPlusFun<PrimitiveType, LongValue, FloatValue>(
-        classScope,
+    auto PLUS_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::FLOAT,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::SHORT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_FLOAT=getPlusFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto PLUS_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_DOUBLE=getPlusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto PLUS_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto PLUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::addss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto PLUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // for optimization
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, FloatValue>(
-        classScope,
+    auto MINUS_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::FLOAT,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_LONG=getMinusFun<PrimitiveType, LongValue, FloatValue>(
-        classScope,
+    auto MINUS_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::FLOAT,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::SHORT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_FLOAT=getMinusFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto MINUS_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_DOUBLE=getMinusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto MINUS_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto MINUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::subss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto MINUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // for optimization
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, FloatValue>(
-        classScope,
+    auto TIMES_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::FLOAT,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_LONG=getTimesFun<PrimitiveType, LongValue, FloatValue>(
-        classScope,
+    auto TIMES_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::FLOAT,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_FLOAT=getTimesFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto TIMES_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_DOUBLE=getTimesFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto TIMES_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::mulss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TIMES_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // for optimization
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_INT=getDivFun<PrimitiveType, IntValue, FloatValue>(
-        classScope,
+    auto DIV_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::FLOAT,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_LONG=getDivFun<PrimitiveType, LongValue, FloatValue>(
-        classScope,
+    auto DIV_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::FLOAT,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_FLOAT=getDivFun<PrimitiveType, FloatValue, FloatValue>(
-        classScope,
+    auto DIV_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::FLOAT,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_DOUBLE=getDivFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto DIV_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                // convert 2nd arg to float
+                Assembler::cvtsi2ss(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::divss(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto DIV_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                // convert 1st arg to double
+                Assembler::cvtsi2sd(Assembler::XMM0(), Assembler::RCX(Assembler::AsmInstruction::DWORD)), // for optimization
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_SHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
@@ -1235,37 +5169,171 @@ void BuiltInFunScope::addBuiltInFunctionsToFloatClass(){
 
     auto UNARY_PLUS=getUnaryPlusFun<PrimitiveType,FloatValue>(classScope,Type::FLOAT);
 
-    auto UNARY_MINUS=getUnaryMinusFun<PrimitiveType,FloatValue>(classScope,Type::FLOAT);
+    auto UNARY_MINUS=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::UNARY_MINUS_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>(),
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_xor(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::imm(L"0x80000000"))
+            };
+        }
+    );
 
     auto INC=getIncFun<PrimitiveType,FloatValue>(classScope,Type::FLOAT);
 
     auto DEC=getDecFun<PrimitiveType,FloatValue>(classScope,Type::FLOAT);
 
-    auto TO_INT=getToIntFun<PrimitiveType>(classScope);
+    auto TO_BYTE=std::make_shared<BuiltInFunScope>(
+        TO_BYTE_NAME,
+        Type::BYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=std::make_shared<BuiltInFunScope>(
+        TO_UBYTE_NAME,
+        Type::UBYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_SHORT=std::make_shared<BuiltInFunScope>(
+        TO_SHORT_NAME,
+        Type::SHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_USHORT=std::make_shared<BuiltInFunScope>(
+        TO_USHORT_NAME,
+        Type::USHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtss2si(Assembler::RAX(), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtss2si(Assembler::RAX(), Assembler::XMM0()),
+            };
+        }
+    );
 
     auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
 
-    auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
+    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
+        TO_DOUBLE_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movd(Assembler::XMM0(), Assembler::RAX(Assembler::AsmInstruction::DWORD)),
+                Assembler::cvtss2sd(Assembler::XMM0(), Assembler::XMM0()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
 
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        PLUS_BYTE,PLUS_SHORT,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_SHORT,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_SHORT,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_SHORT,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        COMPARE_TO_BYTE,COMPARE_TO_SHORT,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING
+        TO_BYTE,TO_UBYTE,TO_INT,TO_UINT,TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -1281,116 +5349,460 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
     
     using PrimitiveType=long double;
 
-    auto PLUS_INT=getPlusFun<PrimitiveType, IntValue, DoubleValue>(
-        classScope,
+    auto PLUS_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_LONG=getPlusFun<PrimitiveType, LongValue, DoubleValue>(
-        classScope,
+    auto PLUS_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::SHORT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_FLOAT=getPlusFun<PrimitiveType, FloatValue, DoubleValue>(
-        classScope,
+    auto PLUS_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto PLUS_DOUBLE=getPlusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto PLUS_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_INT=getMinusFun<PrimitiveType, IntValue, DoubleValue>(
-        classScope,
+    auto PLUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtss2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())    
+            };
+        }
     );
 
-    auto MINUS_LONG=getMinusFun<PrimitiveType, LongValue, DoubleValue>(
-        classScope,
+    auto PLUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::PLUS_NAME,
         Type::DOUBLE,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::addsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_FLOAT=getMinusFun<PrimitiveType, FloatValue, DoubleValue>(
-        classScope,
+    auto MINUS_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto MINUS_DOUBLE=getMinusFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto MINUS_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::SHORT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_INT=getTimesFun<PrimitiveType, IntValue, DoubleValue>(
-        classScope,
+    auto MINUS_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_LONG=getTimesFun<PrimitiveType, LongValue, DoubleValue>(
-        classScope,
+    auto MINUS_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto TIMES_FLOAT=getTimesFun<PrimitiveType, FloatValue, DoubleValue>(
-        classScope,
+    auto MINUS_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtss2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())    
+            };
+        }
     );
 
-    auto TIMES_DOUBLE=getTimesFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto MINUS_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::MINUS_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::subsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_INT=getDivFun<PrimitiveType, IntValue, DoubleValue>(
-        classScope,
+    auto TIMES_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        INT_PARAM_NAME,
-        Type::INT
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_LONG=getDivFun<PrimitiveType, LongValue, DoubleValue>(
-        classScope,
+    auto TIMES_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        LONG_PARAM_NAME,
-        Type::LONG
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::SHORT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_FLOAT=getDivFun<PrimitiveType, FloatValue, DoubleValue>(
-        classScope,
+    auto TIMES_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        FLOAT_PARAM_NAME,
-        Type::FLOAT
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
     );
 
-    auto DIV_DOUBLE=getDivFun<PrimitiveType, DoubleValue, DoubleValue>(
-        classScope,
+    auto TIMES_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
         Type::DOUBLE,
-        DOUBLE_PARAM_NAME,
-        Type::DOUBLE
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto TIMES_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtss2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())    
+            };
+        }
+    );
+
+    auto TIMES_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::TIMES_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::mulsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_BYTE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{BYTE_PARAM_NAME, Type::BYTE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_SHORT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{SHORT_PARAM_NAME, Type::SHORT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cbw(),
+                Assembler::cwde(),
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_INT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME, Type::INT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_LONG=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{LONG_PARAM_NAME, Type::LONG}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtsi2sd(Assembler::XMM1(), Assembler::RAX()),
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto DIV_FLOAT=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{FLOAT_PARAM_NAME, Type::FLOAT}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                // convert 2nd arg to double
+                Assembler::cvtss2sd(Assembler::XMM1(), Assembler::RAX(Assembler::AsmInstruction::DWORD)), // dword for optimization
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())    
+            };
+        }
+    );
+
+    auto DIV_DOUBLE=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::DIV_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>{{DOUBLE_PARAM_NAME, Type::DOUBLE}},
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::pop(Assembler::RCX()),
+                Assembler::movq(Assembler::XMM0(), Assembler::RCX()), // first arg
+                Assembler::movq(Assembler::XMM1(), Assembler::RAX()), // second arg
+                Assembler::divsd(Assembler::XMM0(), Assembler::XMM1()),
+                Assembler::movq(Assembler::RAX(), Assembler::XMM0())
+            };
+        }
+    );
+
+    auto COMPARE_TO_BYTE=getCompareToFun<PrimitiveType, ByteValue>(
+        classScope,
+        BYTE_PARAM_NAME,
+        Type::BYTE
+    );
+
+    auto COMPARE_TO_SHORT=getCompareToFun<PrimitiveType, ShortValue>(
+        classScope,
+        SHORT_PARAM_NAME,
+        Type::SHORT
     );
 
     auto COMPARE_TO_INT=getCompareToFun<PrimitiveType, IntValue>(
@@ -1425,37 +5837,176 @@ void BuiltInFunScope::addBuiltInFunctionsToDoubleClass(){
 
     auto UNARY_PLUS=getUnaryPlusFun<PrimitiveType,DoubleValue>(classScope,Type::DOUBLE);
 
-    auto UNARY_MINUS=getUnaryMinusFun<PrimitiveType,DoubleValue>(classScope,Type::DOUBLE);
+    auto UNARY_MINUS=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::UNARY_MINUS_NAME,
+        Type::DOUBLE,
+        std::vector<std::pair<std::wstring, SharedType>>(),
+        [](Interpreter* interpreter){},
+        true,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::mov(Assembler::RCX(), Assembler::imm(L"0x8000000000000000")),
+                Assembler::_xor(Assembler::RAX(), Assembler::RCX())
+            };
+        }
+    );
 
     auto INC=getIncFun<PrimitiveType,DoubleValue>(classScope,Type::DOUBLE);
 
     auto DEC=getDecFun<PrimitiveType,DoubleValue>(classScope,Type::DOUBLE);
 
-    auto TO_INT=getToIntFun<PrimitiveType>(classScope);
+    auto TO_BYTE=std::make_shared<BuiltInFunScope>(
+        TO_BYTE_NAME,
+        Type::BYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_UINT=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_UBYTE=std::make_shared<BuiltInFunScope>(
+        TO_UBYTE_NAME,
+        Type::UBYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_LONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_SHORT=std::make_shared<BuiltInFunScope>(
+        TO_SHORT_NAME,
+        Type::SHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_ULONG=getToUIntFun<PrimitiveType>(classScope);
+    auto TO_USHORT=std::make_shared<BuiltInFunScope>(
+        TO_USHORT_NAME,
+        Type::USHORT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
 
-    auto TO_FLOAT=getToFloatFun<PrimitiveType>(classScope);
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_UINT=std::make_shared<BuiltInFunScope>(
+        TO_UINT_NAME,
+        Type::UINT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_LONG=std::make_shared<BuiltInFunScope>(
+        TO_LONG_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
+        TO_ULONG_NAME,
+        Type::ULONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2si(Assembler::RAX(), Assembler::XMM0()),
+            };
+        }
+    );
+
+    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
+        TO_FLOAT_NAME,
+        Type::FLOAT,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::movq(Assembler::XMM0(), Assembler::RAX()),
+                Assembler::cvtsd2ss(Assembler::XMM0(), Assembler::XMM0()),
+                Assembler::movd(Assembler::RAX(Assembler::AsmInstruction::DWORD), Assembler::XMM0())
+            };
+        }
+    );
 
     auto TO_DOUBLE=getToDoubleFun<PrimitiveType>(classScope);
 
-    auto TO_STRING=getToStringFun<PrimitiveType>(classScope);
+    auto BIN_REPRESENTATION=std::make_shared<BuiltInFunScope>(
+        BIN_REPRESENTATION_NAME,
+        Type::LONG,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){}
+    );
 
     auto funs={
-        PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
-        MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
-        TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
-        DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
-        COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
+        PLUS_BYTE,PLUS_SHORT,PLUS_INT,PLUS_LONG,PLUS_FLOAT,PLUS_DOUBLE,
+        MINUS_BYTE,MINUS_SHORT,MINUS_INT,MINUS_LONG,MINUS_FLOAT,MINUS_DOUBLE,
+        TIMES_BYTE,TIMES_SHORT,TIMES_INT,TIMES_LONG,TIMES_FLOAT,TIMES_DOUBLE,
+        DIV_BYTE,DIV_SHORT,DIV_INT,DIV_LONG,DIV_FLOAT,DIV_DOUBLE,
+        COMPARE_TO_BYTE,COMPARE_TO_SHORT,COMPARE_TO_INT,COMPARE_TO_LONG,COMPARE_TO_FLOAT,COMPARE_TO_DOUBLE,
         EQUALS,
         UNARY_PLUS,UNARY_MINUS,
         INC,DEC,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,TO_STRING
+        TO_BYTE,TO_UBYTE,
+        TO_SHORT,TO_USHORT,
+        TO_INT,TO_UINT,
+        TO_LONG,TO_ULONG,
+        TO_FLOAT,TO_DOUBLE,
+        
+        BIN_REPRESENTATION,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -1488,38 +6039,23 @@ void BuiltInFunScope::addBuiltInFunctionsToBoolClass(){
         Type::BOOL
     );
 
-    auto TO_STRING=std::make_shared<BuiltInFunScope>(
-        TO_STRING_NAME,
-        Type::STRING,
+    auto TO_INT=std::make_shared<BuiltInFunScope>(
+        TO_INT_NAME,
+        Type::INT,
         std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            interpreter->AX=std::make_shared<StringValue>(interpreter->AX->toString());
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            return std::vector{
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0x1"))
+            };
         }
-    );
-
-    auto BIT_AND=getBitAndFun<PrimitiveType,BoolValue>(
-        classScope,
-        Type::BOOL,
-        BOOL_PARAM_NAME
-    );
-
-    auto XOR=getXorFun<PrimitiveType,BoolValue>(
-        classScope,
-        Type::BOOL,
-        BOOL_PARAM_NAME
-    );
-
-    auto BIT_OR=getBitOrFun<PrimitiveType,BoolValue>(
-        classScope,
-        Type::BOOL,
-        BOOL_PARAM_NAME
     );
 
     auto funs={
         NOT,
         EQUALS,
-        TO_STRING,
-        BIT_AND,XOR,BIT_OR,
+        TO_INT,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -1534,57 +6070,6 @@ void BuiltInFunScope::addBuiltInFunctionsToCharClass() {
     auto classScope=std::dynamic_pointer_cast<CharClassScope>(Type::CHAR->getClassScope());
     
     using PrimitiveType=wchar_t;
-
-    auto PLUS_INT=std::make_shared<BuiltInFunScope>(
-        OperatorFunctions::PLUS_NAME,
-        Type::CHAR,
-        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
-        [](Interpreter* interpreter){
-            auto a=std::dynamic_pointer_cast<CharValue>(interpreter->AX)->getValue();
-            auto b=std::dynamic_pointer_cast<IntValue>(interpreter->CX)->getValue();
-            auto charValue=static_cast<wchar_t>(a+b);
-            if(isKufrOrUnsupportedCharacter(charValue))
-                // TODO: show line number
-                throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
-            interpreter->AX=std::make_shared<CharValue>(charValue);
-        },
-        true
-    );
-
-    auto PLUS_STRING=std::make_shared<BuiltInFunScope>(
-        OperatorFunctions::PLUS_NAME,
-        Type::STRING,
-        std::vector<std::pair<std::wstring, SharedType>>{{STRING_PARAM_NAME,Type::STRING}},
-        [](Interpreter* interpreter){
-            auto a=interpreter->AX->toString();
-            auto b=interpreter->CX->toString();
-            interpreter->AX=std::make_shared<StringValue>(a+b);
-        },
-        true
-    );
-
-    auto MINUS_INT=std::make_shared<BuiltInFunScope>(
-        OperatorFunctions::MINUS_NAME,
-        Type::CHAR,
-        std::vector<std::pair<std::wstring, SharedType>>{{INT_PARAM_NAME,Type::INT}},
-        [](Interpreter* interpreter){
-            auto a=std::dynamic_pointer_cast<CharValue>(interpreter->AX)->getValue();
-            auto b=std::dynamic_pointer_cast<IntValue>(interpreter->CX)->getValue();
-            auto charValue=static_cast<wchar_t>(a-b);
-            if(isKufrOrUnsupportedCharacter(charValue))
-                // TODO: show line number
-                throw ContainsKufrOrUnsupportedCharacterException(-1,L"");
-            interpreter->AX=std::make_shared<CharValue>(charValue);
-        },
-        true
-    );
-
-    auto MINUS_CHAR=getMinusFun<PrimitiveType, CharValue, IntValue>(
-        classScope,
-        Type::INT,
-        CHAR_PARAM_NAME,
-        Type::CHAR
-    );
 
     auto COMPARE_TO_CHAR=getCompareToFun<PrimitiveType, CharValue>(
         classScope,
@@ -1607,22 +6092,10 @@ void BuiltInFunScope::addBuiltInFunctionsToCharClass() {
         }
     );
 
-    auto TO_STRING=std::make_shared<BuiltInFunScope>(
-        TO_STRING_NAME,
-        Type::STRING,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            interpreter->AX=std::make_shared<StringValue>(val);
-        }
-    );
-
     auto funs={
-        PLUS_INT,PLUS_STRING,
-        MINUS_INT,MINUS_CHAR,
         COMPARE_TO_CHAR,
         EQUALS,
-        TO_CHAR,TO_STRING
+        TO_CHAR,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
@@ -1645,7 +6118,57 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
             auto b=interpreter->CX->toString();
             interpreter->AX=std::make_shared<StringValue>(a+b);
         },
-        true
+        true,
+        [=](Compiler* compiler){
+            auto memcpyLabel=compiler->addAinMemcpyAsm();
+            auto allocLabel=compiler->addAinAllocAsm();
+
+            return std::vector{
+                Assembler::pop(Assembler::R10()), // The call address
+                Assembler::pop(Assembler::RDI()), // The address of first string (from the stack)
+                Assembler::mov(Assembler::R8(), Assembler::addressMov(Assembler::RDI())), // The size of first string
+                Assembler::mov(Assembler::R9(), Assembler::addressMov(Assembler::RAX())), // The size of second string
+
+                 // The total size after concatenation, add 8 bytes for the size property
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::R8().value+L"+8+"+Assembler::R9().value)),
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+8")), // the address of first char in first string
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // the address of first char in second string
+                
+                Assembler::push(Assembler::R10()), // The call address
+                Assembler::push(Assembler::imm(L"0")), // preserve space for the new allocated string (for final return)
+
+                Assembler::push(Assembler::RDI()), // preserve first string first char address (from arg for memcpy)
+                Assembler::push(Assembler::imm(L"0")), // preserve space for the new allocated string (to arg for memcpy)
+                Assembler::push(Assembler::R8()), // preserve the size of first string (size arg for memcpy)
+
+                Assembler::push(Assembler::RAX()), // preserve the address of second string (from arg for memcpy)
+                Assembler::push(Assembler::imm(L"0")), // preserve space for the new allocated string (to arg for memcpy)
+                Assembler::push(Assembler::R9()), // preserve the size of second string (size arg for memcpy)
+
+                Assembler::push(Assembler::RDX(), L"مُعامل الحجم_بالبايت"),
+                Assembler::call(Assembler::label(allocLabel), L"استدعاء دالة احجز(كبير)"),
+                Assembler::pop(Assembler::RDX()), // The total size + 8 bytes
+
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::RDX().value+L"-8")), // restore the total size after concatenation
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDX()), // Write the total size after concatenation
+
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),48), Assembler::RAX()), // write new string address for final return 
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // The pointer of first char in new allocated string
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),32), Assembler::RAX()), // write 'to' arg for first memcpy
+                Assembler::add(Assembler::RAX(), Assembler::addressMov(Assembler::RSP(), 24)), // The pointer of (the prev pointer + first string size)
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),8), Assembler::RAX()), // write 'to' arg for second memcpy
+
+                // second memcpy
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::removeReservedSpaceFromStack(24),
+                // first memcpy
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::removeReservedSpaceFromStack(24),
+
+                Assembler::pop(Assembler::RAX()), // final return
+                Assembler::ret()
+            };
+        }
     );
 
     auto PLUS_CHAR=std::make_shared<BuiltInFunScope>(
@@ -1657,7 +6180,86 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
             auto b=interpreter->CX->toString();
             interpreter->AX=std::make_shared<StringValue>(a+b);
         },
+        true,
+        [=](Compiler* compiler){
+            auto memcpyLabel=compiler->addAinMemcpyAsm();
+            auto allocLabel=compiler->addAinAllocAsm();
+            std::wstring cntCharDoneLabel=L"cntCharDone";
+
+            return std::vector{
+                Assembler::pop(Assembler::R10()), // The call address
+                Assembler::pop(Assembler::RDI()), // The address of the string (from the stack)
+                
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RDI())), // The size of string
+                Assembler::mov(Assembler::RSI(), Assembler::RAX()), // The char
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+8")), // The pointer of first char in the string
+                
+                Assembler::_not(Assembler::RAX()),
+                Assembler::_and(Assembler::RAX(), Assembler::imm(L"0xFF")),
+                Assembler::bsr(Assembler::RCX(), Assembler::RAX()),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"7")),
+                Assembler::sub(Assembler::RAX(), Assembler::RCX()),
+                Assembler::test(Assembler::RAX(), Assembler::RAX()),
+                Assembler::jnz(Assembler::label(L"."+cntCharDoneLabel)),
+                Assembler::mov(Assembler::RAX(), Assembler::imm(L"1")),
+                
+                Assembler::localLabel(cntCharDoneLabel),
+                Assembler::push(Assembler::R10()), // call address
+                Assembler::push(Assembler::imm(L"0")), // preserve space for new string for final return
+
+                Assembler::push(Assembler::RSI()), // char
+                Assembler::push(Assembler::RAX()), // char size
+
+                Assembler::push(Assembler::RDI()), // string first char address (from arg)
+                Assembler::push(Assembler::imm(L"0")), // preserve space for (to arg for memcpy)
+                Assembler::push(Assembler::RDX()), // string size
+
+                // new size of string + 8 bytes for size field
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RDX().value+L"+8+"+Assembler::RAX().value)),
+                Assembler::push(Assembler::RAX(), L"مُعامل الحجم_بالبايت"), // new size to allocate
+                Assembler::call(Assembler::label(allocLabel), L"استدعاء دالة احجز(كبير)"),
+                Assembler::pop(Assembler::RDX()), // The total size + 8 bytes
+
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::RDX().value+L"-8")), // restore the total size after concatenation
+                Assembler::mov(Assembler::addressMov(Assembler::RAX()), Assembler::RDX()), // Write the total size after concatenation
+
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),40), Assembler::RAX()), // write new string address for final return 
+                Assembler::lea(Assembler::RAX(), Assembler::addressLea(Assembler::RAX().value+L"+8")), // The pointer of first char in new allocated string
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),8), Assembler::RAX()), // write 'to' arg for memcpy
+
+                // memcpy first string
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::pop(Assembler::RDX()), // size of string
+                Assembler::pop(Assembler::RDI()), // to arg
+                Assembler::pop(Assembler::RSI()), // from arg
+
+                Assembler::pop(Assembler::RCX()), // char size
+                Assembler::pop(Assembler::RAX()), // char
+
+                // The address to write the char in it
+                Assembler::lea(Assembler::RDI(), Assembler::addressLea(Assembler::RDI().value+L"+"+Assembler::RDX().value)),
+                // The address of char address + char size to preserve the content of it, as when writing a 3-byte char, this maybe destroy what after the char
+                Assembler::lea(Assembler::RSI(), Assembler::addressLea(Assembler::RDI().value+L"+"+Assembler::RCX().value)),
+                // Preserve what after the char address
+                Assembler::mov(Assembler::R8(), Assembler::addressMov(Assembler::RSI())),
+                // Write char
+                Assembler::mov(Assembler::addressMov(Assembler::RDI()), Assembler::RAX()),
+                // Write what after char (restore it)
+                Assembler::mov(Assembler::addressMov(Assembler::RSI()), Assembler::R8()),
+
+                Assembler::pop(Assembler::RAX()), // final return the new string
+                Assembler::ret()
+            };
+        }
+    );
+
+    auto GET=std::make_shared<BuiltInFunScope>(
+        OperatorFunctions::GET_NAME,
+        Type::UBYTE,
+        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::ULONG}},
+        [](Interpreter* interpreter){},
         true
+        // The compilation is same as array
     );
 
     auto EQUALS=std::make_shared<BuiltInFunScope>(
@@ -1672,126 +6274,95 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
         true
     );
 
-    auto TO_INT=std::make_shared<BuiltInFunScope>(
-        TO_INT_NAME,
-        Type::INT,
+
+    auto IS_EMPTY=std::make_shared<BuiltInFunScope>(
+        IS_EMPTY_NAME,
+        Type::BOOL,
         std::vector<std::pair<std::wstring, SharedType>>{},
         [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            try{
-                auto value=std::stoi(val);
-                interpreter->AX=std::make_shared<IntValue>(value);
-            }catch(std::exception e){
-                throw NumberFormatException(val);
-            }
+            auto arrayAddress=std::dynamic_pointer_cast<RefValue>(interpreter->AX)->getAddress();
+            auto size=std::dynamic_pointer_cast<IntValue>(interpreter->memory[arrayAddress])->getValue();
+            interpreter->AX=std::make_shared<BoolValue>(size!=0);
+        },
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::inline_asm(L"cmp QWORD [RAX], 0"),
+                Assembler::setz(Assembler::RAX(Assembler::AsmInstruction::BYTE))
+            };
         }
     );
 
-    auto TO_UINT=std::make_shared<BuiltInFunScope>(
-        TO_UINT_NAME,
-        Type::UINT,
+    auto IS_NOT_EMPTY=std::make_shared<BuiltInFunScope>(
+        IS_NOT_EMPTY_NAME,
+        Type::BOOL,
         std::vector<std::pair<std::wstring, SharedType>>{},
         [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            try{
-                auto value=std::stoull(val);
-
-                if(value>std::numeric_limits<unsigned int>().max())
-                    throw NumberFormatException(val);
-
-                interpreter->AX=std::make_shared<UIntValue>(value);
-            }catch(std::exception e){
-                throw NumberFormatException(val);
-            }
+            auto arrayAddress=std::dynamic_pointer_cast<RefValue>(interpreter->AX)->getAddress();
+            auto size=std::dynamic_pointer_cast<IntValue>(interpreter->memory[arrayAddress])->getValue();
+            interpreter->AX=std::make_shared<BoolValue>(size!=0);
+        },
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::inline_asm(L"cmp QWORD [RAX], 0"),
+                Assembler::setnz(Assembler::RAX(Assembler::AsmInstruction::BYTE))
+            };
         }
     );
 
-    auto TO_LONG=std::make_shared<BuiltInFunScope>(
-        TO_LONG_NAME,
-        Type::LONG,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            try{
-                auto value=std::stoll(val);
-                interpreter->AX=std::make_shared<LongValue>(value);
-            }catch(std::exception e){
-                throw NumberFormatException(val);
-            }
-        }
-    );
-
-    auto TO_ULONG=std::make_shared<BuiltInFunScope>(
-        TO_ULONG_NAME,
-        Type::ULONG,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            try{
-                auto value=std::stoull(val);
-                interpreter->AX=std::make_shared<ULongValue>(value);
-            }catch(std::exception e){
-                throw NumberFormatException(val);
-            }
-        }
-    );
-
-    auto TO_FLOAT=std::make_shared<BuiltInFunScope>(
-        TO_FLOAT_NAME,
-        Type::FLOAT,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            try{
-                auto value=std::stof(val);
-                interpreter->AX=std::make_shared<FloatValue>(value);
-            }catch(std::exception e){
-                throw NumberFormatException(val);
-            }
-        }
-    );
-
-    auto TO_DOUBLE=std::make_shared<BuiltInFunScope>(
-        TO_DOUBLE_NAME,
-        Type::DOUBLE,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX->toString();
-            try{
-                auto value=std::stold(val);
-                interpreter->AX=std::make_shared<DoubleValue>(value);
-            }catch(std::exception e){
-                throw NumberFormatException(val);
-            }
-        }
-    );
-
-    auto TO_STRING=std::make_shared<BuiltInFunScope>(
-        TO_STRING_NAME,
-        Type::STRING,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX;
-            interpreter->AX=std::make_shared<StringValue>(val->toString());
-        }
-    );
 
     auto funs={
         PLUS_STRING,PLUS_CHAR,
+        GET,
         EQUALS,
-        TO_INT,TO_UINT,TO_LONG,TO_ULONG,
-        TO_FLOAT,TO_DOUBLE,
-        TO_STRING
+        IS_EMPTY,IS_NOT_EMPTY,
     };
 
     auto publicFuns=classScope->getPublicFunctions();
+
     for(auto fun:funs){
         (*publicFuns)[fun->getDecl()->toString()]=fun;
     }
 
+    auto CONSTRUCTOR_FROM_BYTE_ARRAY=std::make_shared<BuiltInFunScope>(
+        KeywordToken::NEW.getVal(),
+        Type::STRING,
+        std::vector<std::pair<std::wstring, SharedType>>{
+            {L"مصفوفة_م1",std::make_shared<Type>(Type::Array(Type::UBYTE))}
+        },
+        [](Interpreter* interpreter){},
+        false,
+        [=](Compiler* compiler){
+            auto memcpyLabel=compiler->addAinMemcpyAsm();
+            auto allocLabel=compiler->addAinAllocAsm();
+            return std::vector{
+                Assembler::mov(Assembler::RDX(), Assembler::addressMov(Assembler::RAX())), // The size of array
+                Assembler::push(Assembler::imm(L"0")), // preserve space for new string for final return
+                Assembler::push(Assembler::RAX()), // preserve 'from' arg for memcpy
+                Assembler::push(Assembler::imm(L"0")), // preserve space for 'to' arg for memcpy
+                Assembler::lea(Assembler::RDX(), Assembler::addressLea(Assembler::RDX().value+L"+8")), // add 8 bytes for size field
+                Assembler::push(Assembler::RDX(), L"مُعامل الحجم_بالبايت"), // The size to allocate, also arg for memcpy
+                Assembler::call(Assembler::label(allocLabel), L"استدعاء دالة احجز(كبير)"),
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),8), Assembler::RAX()), // 'to' arg for memcpy
+                Assembler::mov(Assembler::addressMov(Assembler::RSP(),24), Assembler::RAX()), // final return string
+                // memcpy
+                Assembler::call(Assembler::label(memcpyLabel), L"استدعاء دالة انسخ(كبير، كبير، كبير)"),
+                Assembler::removeReservedSpaceFromStack(24),
+                Assembler::pop(Assembler::RAX()), // final return
+                Assembler::ret()
+            };
+        }
+    );
+
+    auto decl=CONSTRUCTOR_FROM_BYTE_ARRAY->getDecl()->toString();
+
+    if(!classScope->findPublicConstructor(decl))
+        (*classScope->getPublicConstructors())[decl]=CONSTRUCTOR_FROM_BYTE_ARRAY;
+
 }
 
-void BuiltInFunScope::addBuiltInFunctionsToUnitClass(){
+void BuiltInFunScope::addBuiltInFunctionsToVoidClass(){
 
     auto TO_STRING=std::make_shared<BuiltInFunScope>(
         TO_STRING_NAME,
@@ -1803,7 +6374,7 @@ void BuiltInFunScope::addBuiltInFunctionsToUnitClass(){
         }
     );
 
-    auto publicFuns=Type::UNIT->getClassScope()->getPublicFunctions();
+    auto publicFuns=Type::VOID->getClassScope()->getPublicFunctions();
    
     (*publicFuns)[TO_STRING->getDecl()->toString()]=TO_STRING;
 
@@ -1817,7 +6388,7 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
     auto GET=std::make_shared<BuiltInFunScope>(
         OperatorFunctions::GET_NAME,
         genericType,
-        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::INT}},
+        std::vector<std::pair<std::wstring, SharedType>>{{INDEX_PARAM_NAME,Type::ULONG}},
         [](Interpreter* interpreter){
             auto arrayAddress=std::dynamic_pointer_cast<RefValue>(interpreter->AX)->getAddress();
             auto index=std::dynamic_pointer_cast<IntValue>(interpreter->CX)->getValue();
@@ -1831,9 +6402,9 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
 
     auto SET=std::make_shared<BuiltInFunScope>(
         OperatorFunctions::SET_NAME,
-        Type::UNIT,
+        Type::VOID,
         std::vector<std::pair<std::wstring, SharedType>>{
-            {INDEX_PARAM_NAME,Type::INT},
+            {INDEX_PARAM_NAME,Type::ULONG},
             {VALUE_PARAM_NAME,genericType},
         },
         [](Interpreter* interpreter){
@@ -1844,9 +6415,27 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
                 throw ArrayIndexOutOfRangeException(arraySize,index);
             auto value=interpreter->DX;
             interpreter->memory[arrayAddress+index+1]=value;
-            interpreter->AX=std::make_shared<UnitValue>();
+            interpreter->AX=std::make_shared<VoidValue>();
         },
         true
+    );
+
+    auto IS_EMPTY=std::make_shared<BuiltInFunScope>(
+        IS_EMPTY_NAME,
+        Type::BOOL,
+        std::vector<std::pair<std::wstring, SharedType>>{},
+        [](Interpreter* interpreter){
+            auto arrayAddress=std::dynamic_pointer_cast<RefValue>(interpreter->AX)->getAddress();
+            auto size=std::dynamic_pointer_cast<IntValue>(interpreter->memory[arrayAddress])->getValue();
+            interpreter->AX=std::make_shared<BoolValue>(size!=0);
+        },
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::inline_asm(L"cmp QWORD [RAX], 0"),
+                Assembler::setz(Assembler::RAX(Assembler::AsmInstruction::BYTE))
+            };
+        }
     );
 
     auto IS_NOT_EMPTY=std::make_shared<BuiltInFunScope>(
@@ -1857,6 +6446,13 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
             auto arrayAddress=std::dynamic_pointer_cast<RefValue>(interpreter->AX)->getAddress();
             auto size=std::dynamic_pointer_cast<IntValue>(interpreter->memory[arrayAddress])->getValue();
             interpreter->AX=std::make_shared<BoolValue>(size!=0);
+        },
+        false,
+        [](Compiler* compiler){
+            return std::vector{
+                Assembler::inline_asm(L"cmp QWORD [RAX], 0"),
+                Assembler::setnz(Assembler::RAX(Assembler::AsmInstruction::BYTE))
+            };
         }
     );
 
@@ -1866,7 +6462,8 @@ void BuiltInFunScope::addBuiltInFunctionsToArrayClass(){
     auto funs={
         GET,
         SET,
-        IS_NOT_EMPTY,
+        IS_EMPTY,
+        IS_NOT_EMPTY
     };
 
     auto publicFuns=classScope->getPublicFunctions();

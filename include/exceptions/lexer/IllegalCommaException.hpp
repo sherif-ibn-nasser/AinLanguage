@@ -2,10 +2,10 @@
 #include <iostream>
 #include "AinException.hpp"
 
-class IllegalUnderscoreException:public AinException{
+class IllegalCommaException:public AinException{
 
     public:
-    IllegalUnderscoreException(int lineNumber,std::wstring token)
+    IllegalCommaException(int lineNumber,std::wstring token)
     :AinException(
         AinException::errorWString(
             L"في السطر "+std::to_wstring(lineNumber)+
@@ -13,7 +13,7 @@ class IllegalUnderscoreException:public AinException{
             L"\n"+
             AinException::removeNullChar(token)+
             L"\n"+
-            L"يوجد شَرطَة سُفلية غير صالحة."
+            L"يوجد فاصلة غير صالحة في الرقم."
         )
     ){}
 };

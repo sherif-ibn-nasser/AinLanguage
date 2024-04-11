@@ -14,12 +14,12 @@ bool endsWith(std::string str, std::string suffix)
     return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
 }
 
-void removeUnderscores(std::wstring* wstr){
+void removeCommas(std::wstring* wstr){
     wstr->erase(
         std::remove_if(
             wstr->begin(),
             wstr->end(),
-            [](auto c){return c==L'_';}
+            [](auto c){return c==L',';}
         ),
         wstr->end()
     );
@@ -39,13 +39,13 @@ wchar_t getEscapeSequenceFromCharacter(const wchar_t& c){
         // مسافة للخلف
         case L'خ' :return L'\b';
 
-        // مساحة أفقية
+        // مسافة أفقية
         case L'ف' :return L'\t';
 
         // سطر جديد
         case L'س' :return L'\n';
 
-        // مساحة رأسية
+        // مسافة رأسية
         case L'ر' :return L'\v';
 
         // الصفحة التالية
