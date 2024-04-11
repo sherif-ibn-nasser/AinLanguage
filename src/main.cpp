@@ -248,8 +248,10 @@ int main(int argc, char * argv[]){
         outputAsmFile<<toCharPointer(generatedAsm);
         outputAsmFile.close();
 
-        auto command="nasm -felf64 -o "+outputObjFileName+" -gdwarf "+outputAsmFileName+"; ld "+outputObjFileName+" -o "+outputBinName;
-
+        auto command=
+            "nasm -felf64 -o "+outputObjFileName+" -gdwarf "+outputAsmFileName
+            +"; ld "+outputObjFileName+" -o "+outputBinName
+            +"; rm "+outputObjFileName+" "+outputAsmFileName;
         system(command.c_str());
         
         /*
