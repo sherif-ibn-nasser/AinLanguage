@@ -6311,7 +6311,6 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
         }
     );
 
-
     auto funs={
         PLUS_STRING,PLUS_CHAR,
         GET,
@@ -6363,20 +6362,6 @@ void BuiltInFunScope::addBuiltInFunctionsToStringClass() {
 }
 
 void BuiltInFunScope::addBuiltInFunctionsToVoidClass(){
-
-    auto TO_STRING=std::make_shared<BuiltInFunScope>(
-        TO_STRING_NAME,
-        Type::STRING,
-        std::vector<std::pair<std::wstring, SharedType>>{},
-        [](Interpreter* interpreter){
-            auto val=interpreter->AX;
-            interpreter->AX=std::make_shared<StringValue>(val->toString());
-        }
-    );
-
-    auto publicFuns=Type::VOID->getClassScope()->getPublicFunctions();
-   
-    (*publicFuns)[TO_STRING->getDecl()->toString()]=TO_STRING;
 
 }
 
