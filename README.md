@@ -10,9 +10,21 @@ A new **Arabic** programming language, built from scratch with **C++**, with no 
 
 We plan to make the language self-hosted, which means, **Ain** will be written in **Ain**.
 
-**Warning!** The language is under development and the code base may be changed in the future. [See open issues](https://gitlab.com/sherifnasser/AinLanguage/-/issues).
+[See us on YouTube](https://www.youtube.com/@AinProgrammingLanguage)
 
-[Follow us on YouTube](https://www.youtube.com/@AinProgrammingLanguage)
+# The Shutdown
+
+The project is now archived and we will no longer be actively working on it. The decision to shut down the project stems from the following issues:
+
+* **Language Choice**: The project is implemented in C++, which has proven to be a significant impediment.
+* **Maintainability**: The parser is difficult to maintain and extend with new features.
+* **Coupling**: The Intermediate Representation (IR) and type-checking mechanisms are too closely coupled with the parsing stage.
+* **Code Generation**: Code generation relies on hand-written assembly, which is less efficient and harder to maintain.
+* **Error Handling**: The error messages provided by the compiler are inadequate.
+* **Documentation**: The project lacks sufficient documentation.
+* **Standard Library**: The standard library (STD) is challenging to maintain.
+
+As a result, we have decided to redirect our efforts to [نظم](https://github.com/sherif2003/nazm-lang), a new Arabic programming language. The first version of the compiler for نظم is written in Rust, where we have addressed the shortcomings experienced in this project.
 
 # What's new in v0.4 (Compiled Ain)
 
