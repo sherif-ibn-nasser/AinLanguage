@@ -32,7 +32,7 @@ As a result, we have decided to redirect our efforts to [نظم](https://github.
 
 * Generate binary executables for your ain project
 
-* Start [`ainstd`](https://github.com/sherif-ibn-nasser/AinLanguage/-/blob/main/ainstd/) lib
+* Start [`ainstd`](https://github.com/sherif-ibn-nasser/AinLanguage/blob/main/ainstd/) lib
 
 * Memory management functions in [`ainmem.ain`](https://github.com/sherif-ibn-nasser/AinLanguage/blob/main/ainstd/ainmem.ain)
 
